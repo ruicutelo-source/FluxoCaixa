@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fluxo de Caixa</title>
+<meta name="theme-color" content="#6b2a17">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f6f1ec; --card:#ffffff; --ink:#2a1d17; --muted:#7a6a61; --line:#e7ddd5;
+  --brand:#6b2a17; --brand-2:#8a3a22; --brand-ink:#fff;
+  --rec:#1f7a3a; --rec-bg:#e5f4e9; --des:#b3261e; --des-bg:#fbe7e5; --tr:#2f5d8a; --tr-bg:#e4eef8;
+  --warn:#9a6700; --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 14px rgba(0,0,0,.05);
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#17120f; --card:#221a16; --ink:#f1e8e2; --muted:#a8978c; --line:#3a2e27;
+    --brand:#8a3a22; --brand-2:#a5492c; --rec:#5ccf7d; --rec-bg:#16301f; --des:#ff8a80; --des-bg:#3a1d1a; --tr:#8cb8e6; --tr-bg:#1a2a3a;
+    --shadow:0 1px 3px rgba(0,0,0,.4)}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+/* layout */
+header.top{position:sticky;top:0;z-index:20;background:var(--brand);color:var(--brand-ink);display:flex;align-items:center;gap:10px;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top))}
+header.top h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header.top select{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);border-radius:10px;color:#fff;padding:6px 8px}
+header.top select option{color:#000}
+.iconbtn{background:none;border:0;color:inherit;padding:6px;border-radius:10px;cursor:pointer;display:inline-flex}
+.iconbtn:hover{background:rgba(255,255,255,.12)}
+.sync{font-size:12px;opacity:.85}
+main{padding:16px;padding-bottom:96px;max-width:1100px;margin:0 auto}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;background:none;border:0;padding:8px 2px 9px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);cursor:pointer}
+nav.tabs button.on{color:var(--brand)}
+nav.tabs svg{width:22px;height:22px}
+@media (min-width:900px){
+  nav.tabs{top:56px;bottom:0;right:auto;width:200px;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:12px 8px}
+  nav.tabs button{flex:0;flex-direction:row;gap:12px;font-size:15px;padding:12px 14px;border-radius:10px;justify-content:flex-start}
+  nav.tabs button.on{background:var(--bg)}
+  main{margin-left:200px;padding:24px 28px 40px;max-width:none}
+  .fab{right:32px!important;bottom:32px!important}
+}
+h2{font-size:20px;margin:4px 0 14px}
+h3{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin-bottom:14px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:700px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.kpi{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 14px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:20px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.pos{color:var(--rec)} .neg{color:var(--des)} .trc{color:var(--tr)}
+.two{display:grid;gap:14px}
+.two>*{min-width:0}
+.scroll th:first-child,.scroll td:first-child{position:sticky;left:0;background:var(--card);z-index:1}
+@media (min-width:1000px){.two{grid-template-columns:1fr 1fr}}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+table.ind td{white-space:normal}
+th{font-size:12px;color:var(--muted);font-weight:600}
+tr.tot td{font-weight:700;border-top:2px solid var(--line)}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.muted{color:var(--muted)} .small{font-size:12px}
+/* month chips */
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;cursor:pointer}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.monthhead{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.monthhead div{border-radius:12px;padding:8px 10px}
+.monthhead .l{font-size:11px;opacity:.8}.monthhead .v{font-weight:700;font-variant-numeric:tabular-nums}
+.mh-r{background:var(--rec-bg);color:var(--rec)} .mh-d{background:var(--des-bg);color:var(--des)} .mh-s{background:var(--tr-bg);color:var(--tr)}
+.search{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:10px}
+.item{display:flex;gap:10px;align-items:center;background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer;border-left:4px solid var(--line)}
+.item.Receita{border-left-color:var(--rec)} .item.Despesa{border-left-color:var(--des)} .item.Transferência{border-left-color:var(--tr)}
+.item .main{flex:1;min-width:0}
+.item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .val{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.badge{font-size:11px;border-radius:6px;padding:1px 6px;margin-left:4px}
+.b-warn{background:#fff3cd;color:#7a5b00}
+.fab{position:fixed;right:18px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:25;width:58px;height:58px;border-radius:50%;border:0;background:var(--brand);color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25);font-size:30px;cursor:pointer}
+/* sheet / modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:700px){.overlay{align-items:center}}
+.sheet{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.sheet{border-radius:18px}}
+.sheet h2{display:flex;align-items:center}
+.sheet h2 span{flex:1}
+.f{display:grid;gap:12px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.fl{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.inp{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-height:42px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;background:var(--bg);padding:10px 4px;cursor:pointer}
+.seg button.on.Receita{background:var(--rec);color:#fff}.seg button.on.Despesa{background:var(--des);color:#fff}.seg button.on.Transferência{background:var(--tr);color:#fff}
+.btn{border:0;border-radius:10px;padding:11px 16px;cursor:pointer;background:var(--bg);border:1px solid var(--line)}
+.btn.p{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.d{background:var(--des);color:#fff;border-color:var(--des)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.btns .grow{flex:1}
+.bar{height:8px;border-radius:4px;background:var(--brand-2);min-width:2px}
+.toprow{display:grid;grid-template-columns:26px 1fr auto;gap:4px 8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.toprow .n{color:var(--muted);font-weight:700}
+.toprow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toprow .bw{grid-column:2/4;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap}
+.toprow .bwrap{flex:1;min-width:40px}
+.toprow .med{grid-column:2/4;font-size:12px;color:var(--muted);margin-top:-2px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:10px 16px;border-radius:10px;z-index:60;max-width:90vw}
+/* login */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.login .card{width:100%;max-width:380px;padding:22px}
+.login h1{margin:0 0 4px;font-size:22px;color:var(--brand)}
+.err{color:var(--des);font-size:13px;min-height:18px}
+.listed{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.listed span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.empty{padding:28px 12px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div id="loginView" class="login hidden">
+  <form class="card f" id="loginForm">
+    <div><h1>Fluxo de Caixa</h1><div class="muted small">Entre com o seu email e palavra-passe</div></div>
+    <label class="fl">Email<input class="inp" id="lgEmail" type="email" autocomplete="username" required></label>
+    <label class="fl">Palavra-passe<input class="inp" id="lgPass" type="password" autocomplete="current-password" required></label>
+    <div class="err" id="lgErr"></div>
+    <button class="btn p" type="submit">Entrar</button>
+  </form>
+</div>
+
+<div id="appView" class="hidden">
+  <header class="top">
+    <h1 id="title">Fluxo de Caixa</h1>
+    <span class="sync" id="sync"></span>
+    <select id="yearSel" aria-label="Ano"></select>
+    <button class="iconbtn" id="btnCfg" aria-label="Definições" title="Definições">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+  <nav class="tabs" id="tabs">
+    <button data-v="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Início</button>
+    <button data-v="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lançamentos</button>
+    <button data-v="fluxo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/></svg>Fluxo</button>
+    <button data-v="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Top 10</button>
+    <button data-v="analise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Análise</button>
+  </nav>
+  <main id="main"></main>
+  <button class="fab hidden" id="fab" aria-label="Novo lançamento">+</button>
+</div>
+
+<div id="modal"></div>
+
+<script type="module">
+import { firebaseConfig } from './firebase-config.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc,
+         onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const APP_VERSION = '1.0.0';
+const fb = initializeApp(firebaseConfig);
+const auth = getAuth(fb);
+const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+
+/* ---------------- constants & helpers ---------------- */
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MESES_L = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const TIPOS = ['Receita','Despesa','Transferência'];
+const D1 = { 'Receita':['Receita Operacional','Receita Não Operacional'],
+             'Despesa':['Despesa Fixa','Despesa Variável','Despesa Não Operacional'],
+             'Transferência':['Transferência entre Contas'] };
+const LKEY = { 'Receita Operacional':'receitaOperacional', 'Receita Não Operacional':'receitaNaoOperacional',
+               'Despesa Fixa':'despesaFixa', 'Despesa Variável':'despesaVariavel', 'Despesa Não Operacional':'despesaNaoOperacional' };
+const EMPTY_LISTAS = { receitaOperacional:[], receitaNaoOperacional:[], despesaFixa:[], despesaVariavel:[],
+                       despesaNaoOperacional:[], contas:[], saldosIniciais:{}, contaControlada:'' };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let fmtE; try { fmtE = new Intl.NumberFormat('pt-PT', { style:'currency', currency:'EUR', useGrouping:'always' }); } catch (e) { fmtE = new Intl.NumberFormat('pt-PT', { style:'currency', currency:'EUR' }); }
+const eur = n => fmtE.format(Math.round((n || 0) * 100) / 100);
+const pct = n => (isFinite(n) ? (n * 100).toLocaleString('pt-PT', { minimumFractionDigits:1, maximumFractionDigits:1 }) : '0,0') + '%';
+const cls = n => n > 0.004 ? 'pos' : (n < -0.004 ? 'neg' : '');
+const r2 = n => Math.round(n * 100) / 100;
+const dPT = iso => iso ? iso.split('-').reverse().join('/') : '';
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const parseNum = s => { if (typeof s === 'number') return s; s = String(s || '').trim().replace(/\s|€/g, '');
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isNaN(n) ? NaN : n; };
+// month cycle: day 17 onwards belongs to next month (as in the workbook: 17 → 16)
+function cycleOf(iso) { const [y, m, d] = iso.split('-').map(Number); let mi = m - 1, yy = y;
+  if (d >= 17) { mi++; if (mi > 11) { mi = 0; yy++; } } return { mes: MESES[mi], ano: yy }; }
+function anoFor(iso, mes) { const [y, m] = iso.split('-').map(Number); const mi = MESES.indexOf(mes);
+  if (mi === 0 && m === 12) return y + 1; if (mi === 11 && m === 1) return y - 1; return y; }
+function toast(msg, ms = 2600) { document.querySelectorAll('.toast').forEach(x => x.remove()); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+
+/* ---------------- state ---------------- */
+const S = { user:null, listas:{...EMPTY_LISTAS}, lancs:[], ano:null, view:'inicio', mes:null, q:'', topMes:null,
+            loadedL:false, loadedC:false, unsub:[] };
+try { S.view = localStorage.getItem('fc_view') || 'inicio'; } catch (e) {}
+
+/* ---------------- auth ---------------- */
+onAuthStateChanged(auth, user => {
+  S.user = user;
+  S.unsub.forEach(u => u()); S.unsub = [];
+  if (!user) { $('#appView').classList.add('hidden'); $('#loginView').classList.remove('hidden'); return; }
+  $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
+  S.unsub.push(onSnapshot(doc(db, 'config', 'listas'), snap => {
+    S.listas = { ...EMPTY_LISTAS, ...(snap.exists() ? snap.data() : {}) }; S.loadedC = true; render();
+  }, err => showErr(err)));
+  S.unsub.push(onSnapshot(collection(db, 'lancamentos'), { includeMetadataChanges:true }, snap => {
+    S.lancs = snap.docs.map(d => ({ id:d.id, ...d.data() })); S.loadedL = true;
+    $('#sync').textContent = snap.metadata.hasPendingWrites ? 'a sincronizar…' : (snap.metadata.fromCache ? 'offline' : '');
+    render();
+  }, err => showErr(err)));
+  render();
+});
+function showErr(err) { console.error(err); toast('Erro de acesso aos dados: ' + (err.code || err.message), 5000); }
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('#lgErr').textContent = '';
+  try { await signInWithEmailAndPassword(auth, $('#lgEmail').value.trim(), $('#lgPass').value); }
+  catch (err) { $('#lgErr').textContent = ['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-email'].includes(err.code)
+      ? 'Email ou palavra-passe errados.' : 'Não foi possível entrar (' + (err.code || err.message) + ').'; }
+});
+
+/* ---------------- calculations ---------------- */
+function anos() { const s = new Set(S.lancs.map(l => l.ano)); s.add(new Date().getFullYear()); return [...s].filter(Boolean).sort(); }
+function doAno() { return S.lancs.filter(l => l.ano === S.ano); }
+function calc(ano) {
+  const ctl = S.listas.contaControlada;
+  const L = S.lancs.filter(l => l.ano === ano);
+  const m = MESES.map(() => ({ rec:0, des:0, tin:0, tout:0, d1:{}, n:0 }));
+  const desD2 = {}, desD2m = MESES.map(() => ({}));
+  const contas = {};
+  const ac = c => (contas[c] = contas[c] || { ent:0, sai:0 });
+  for (const l of L) {
+    const i = MESES.indexOf(l.mes); if (i < 0) continue; const x = m[i]; const v = +l.valor || 0; x.n++;
+    if (l.tipo === 'Receita') { x.rec += v; x.d1[l.d1] = (x.d1[l.d1] || 0) + v; if (l.conta) ac(l.conta).ent += v; }
+    else if (l.tipo === 'Despesa') { x.des += v; x.d1[l.d1] = (x.d1[l.d1] || 0) + v;
+      desD2[l.d2] = (desD2[l.d2] || 0) + v; desD2m[i][l.d2] = (desD2m[i][l.d2] || 0) + v; if (l.conta) ac(l.conta).sai += v; }
+    else if (l.tipo === 'Transferência') {
+      if (l.d2 === ctl) x.tin += v; if (l.conta === ctl) x.tout += v;
+      if (l.d2) ac(l.d2).ent += v; if (l.conta) ac(l.conta).sai += v; }
+  }
+  let acc = 0;
+  for (const x of m) { x.ent = x.rec + x.tin; x.sai = x.des + x.tout; x.saldo = x.ent - x.sai; acc += x.saldo; x.acc = acc; x.used = x.n > 0; }
+  const T = { ent:m.reduce((a, x) => a + x.ent, 0), sai:m.reduce((a, x) => a + x.sai, 0), rec:m.reduce((a, x) => a + x.rec, 0),
+              des:m.reduce((a, x) => a + x.des, 0), tr:m.reduce((a, x) => a + x.tin - x.tout, 0) };
+  T.saldo = T.ent - T.sai; T.nm = m.filter(x => x.used).length || 1;
+  const saldoIni = +(S.listas.saldosIniciais || {})[ctl] || 0;
+  T.saldoReal = saldoIni + T.saldo;
+  const rank = o => Object.entries(o).filter(([k, v]) => v > 0.0001).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return { m, T, top:rank(desD2), topM:desD2m.map(rank), contas, saldoIni };
+}
+
+/* ---------------- render ---------------- */
+function render() {
+  if (!S.user) return;
+  const ys = anos();
+  if (!S.ano || !ys.includes(S.ano)) S.ano = ys.includes(lastDataYear()) ? lastDataYear() : ys[ys.length - 1];
+  $('#yearSel').innerHTML = ys.map(y => `<option ${y === S.ano ? 'selected' : ''}>${y}</option>`).join('');
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
+  $('#fab').classList.toggle('hidden', !['inicio','lanc'].includes(S.view));
+  const main = $('#main');
+  if (!S.loadedL || !S.loadedC) { main.innerHTML = '<div class="empty">A carregar…</div>'; return; }
+  const noLists = !S.listas.contas.length;
+  const V = { inicio:vInicio, lanc:vLanc, fluxo:vFluxo, top:vTop, analise:vAnalise, cfg:vCfg }[S.view] || vInicio;
+  main.innerHTML = (noLists && S.view !== 'cfg')
+    ? `<div class="card empty"><p><b>Ainda não há dados.</b></p><p>Vá a Definições e importe o seu ficheiro Excel (FluxoCaixa_2026_v17.xlsx) ou crie as listas à mão.</p>
+       <button class="btn p" data-go="cfg">Abrir Definições</button></div>`
+    : V();
+  bindMain();
+}
+function lastDataYear() { const y = S.lancs.map(l => l.ano).filter(Boolean); return y.length ? Math.max(...y) : null; }
+function curMesDefault() { const c = cycleOf(todayISO()); if (c.ano === S.ano) return c.mes;
+  const used = MESES.filter(mm => doAno().some(l => l.mes === mm)); return used.length ? used[used.length - 1] : 'Jan'; }
+
+function vInicio() {
+  const { m, T, top } = calc(S.ano);
+  const tp = T.ent ? T.saldo / T.ent : 0;
+  const ctl = S.listas.contaControlada || '—';
+  return `<h2>Resumo ${S.ano}</h2>
+  <div class="grid kpis">
+    <div class="kpi"><div class="l">Total receitas</div><div class="v pos">${eur(T.ent)}</div></div>
+    <div class="kpi"><div class="l">Total despesas</div><div class="v neg">${eur(T.sai)}</div></div>
+    <div class="kpi"><div class="l">Saldo líquido</div><div class="v ${cls(T.saldo)}">${eur(T.saldo)}</div></div>
+    <div class="kpi"><div class="l">Taxa de poupança</div><div class="v ${cls(tp)}">${pct(tp)}</div></div>
+  </div>
+  <div class="card" style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="flex:1"><div class="muted small">Saldo real em ${esc(ctl)} (saldo inicial + movimentos)</div>
+    <div style="font-size:26px;font-weight:800" class="${cls(T.saldoReal)}">${eur(T.saldoReal)}</div></div>
+    <div class="small muted">Inclui transferências: ${eur(T.tr)}</div>
+  </div>
+  <div class="two">
+    <div class="card scroll"><h3>Resumo mensal</h3>
+      <table><tr><th>Mês</th><th>Receitas</th><th>Despesas</th><th>Saldo</th><th>Acumulado</th><th>Poup.</th></tr>
+      ${m.map((x, i) => `<tr class="click" data-mes="${MESES[i]}"><td>${MESES[i]}</td><td>${eur(x.ent)}</td><td>${eur(x.sai)}</td>
+        <td class="${cls(x.saldo)}">${eur(x.saldo)}</td><td class="${cls(x.acc)}">${eur(x.acc)}</td><td>${pct(x.ent ? x.saldo / x.ent : 0)}</td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td>${eur(T.ent)}</td><td>${eur(T.sai)}</td><td class="${cls(T.saldo)}">${eur(T.saldo)}</td><td></td><td>${pct(tp)}</td></tr></table>
+    </div>
+    <div class="card"><h3>Top 10 gastos do ano</h3>${topList(top.slice(0, 10), T.nm, true)}</div>
+  </div>`;
+}
+function topList(rows, nm, annual) {
+  if (!rows.length) return '<div class="empty">Sem despesas.</div>';
+  const sum = rows.reduce((a, r) => a + r[1], 0), max = rows[0][1];
+  const med = ['🥇','🥈','🥉'];
+  return rows.map(([n, v], i) => { const p = v / sum;
+    const av = p > 0.3 ? '⚠️ Muito alto' : p > 0.2 ? '📌 Elevado' : (annual || p > 0.1) ? '✅ Normal' : '✅ Baixo';
+    return `<div class="toprow"><div class="n">${med[i] || (i + 1)}</div><div class="nm">${esc(n)}</div><div><b>${eur(v)}</b></div>
+      <div class="bw"><div class="bwrap"><div class="bar" style="width:${Math.max(2, v / max * 100)}%"></div></div><span>${pct(p)}</span><span>${av}</span></div>${annual ? `<div class="med">média ${eur(v / nm)} por mês</div>` : ''}</div>`; }).join('');
+}
+
+function vLanc() {
+  if (!S.mes) S.mes = curMesDefault();
+  const { m } = calc(S.ano); const x = m[MESES.indexOf(S.mes)];
+  const q = S.q.trim().toLowerCase();
+  const L = doAno().filter(l => l.mes === S.mes)
+    .filter(l => !q || [l.d1, l.d2, l.conta, l.tipo, String(l.valor)].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.ord || 0) - (b.ord || 0));
+  return `<div class="chips">${MESES.map(mm => `<button class="chip ${mm === S.mes ? 'on' : ''}" data-chip="${mm}">${mm}</button>`).join('')}</div>
+  <h2>${MESES_L[MESES.indexOf(S.mes)]} ${S.ano}</h2>
+  <div class="monthhead"><div class="mh-r"><div class="l">Receitas do mês</div><div class="v">${eur(x.ent)}</div></div>
+    <div class="mh-d"><div class="l">Despesas do mês</div><div class="v">${eur(-x.sai)}</div></div>
+    <div class="mh-s"><div class="l">Saldo</div><div class="v">${eur(x.saldo)}</div></div></div>
+  <input class="search" id="q" placeholder="Procurar neste mês…" value="${esc(S.q)}">
+  ${L.length ? L.map(itemHTML).join('') : '<div class="empty">Sem lançamentos neste mês.</div>'}
+  <div class="small muted" style="text-align:center;margin-top:8px">${L.length} lançamento(s)</div>`;
+}
+function itemHTML(l) {
+  const ctl = S.listas.contaControlada;
+  let sign = l.tipo === 'Receita' ? 1 : l.tipo === 'Despesa' ? -1 : (l.d2 === ctl ? 1 : l.conta === ctl ? -1 : 0);
+  const sub = l.tipo === 'Transferência' ? `${esc(l.conta)} → ${esc(l.d2)}` : `${esc(l.d1)} · ${esc(l.conta)}`;
+  const warn = (l.situacao && l.situacao !== 'Pago') || l.pago === 'Não' ? `<span class="badge b-warn">${esc(l.situacao || 'Por pagar')}</span>` : '';
+  return `<div class="item ${esc(l.tipo)}" data-id="${l.id}"><div class="main"><div class="t">${esc(l.tipo === 'Transferência' ? 'Transferência' : l.d2)}${warn}</div>
+    <div class="s">${dPT(l.data)} · ${sub}</div></div>
+    <div class="val ${sign > 0 ? 'pos' : sign < 0 ? 'neg' : 'trc'}">${sign < 0 ? '−' : sign > 0 ? '+' : ''}${eur(l.valor)}</div></div>`;
+}
+
+function vFluxo() {
+  const { m, T } = calc(S.ano);
+  const row = (label, f, extra = '') => `<tr${extra}><td>${label}</td>${m.map(x => { const v = f(x); return `<td class="${cls(v)}">${eur(v)}</td>`; }).join('')}<td><b>${eur(m.reduce((a, x) => a + f(x), 0))}</b></td></tr>`;
+  const d1r = (n, s) => row('&nbsp;&nbsp;' + n, x => s * (x.d1[n] || 0));
+  return `<h2>Fluxo mensal ${S.ano}</h2><div class="card scroll"><table>
+  <tr><th></th>${MESES.map(mm => `<th>${mm}</th>`).join('')}<th>Total</th></tr>
+  <tr><td colspan="14"><b class="pos">▶ Receitas</b></td></tr>
+  ${D1.Receita.map(n => d1r(n, 1)).join('')}
+  ${row('&nbsp;&nbsp;Transferências recebidas', x => x.tin)}
+  ${row('<b>Total receitas</b>', x => x.ent, ' class="tot"')}
+  <tr><td colspan="14"><b class="neg">▶ Despesas</b></td></tr>
+  ${D1.Despesa.map(n => d1r(n, -1)).join('')}
+  ${row('&nbsp;&nbsp;Transferências enviadas', x => -x.tout)}
+  ${row('<b>Total despesas</b>', x => -x.sai, ' class="tot"')}
+  ${row('<b>💰 Saldo líquido</b>', x => x.saldo, ' class="tot"')}
+  <tr class="tot"><td><b>📈 Saldo acumulado</b></td>${m.map(x => `<td class="${cls(x.acc)}">${eur(x.acc)}</td>`).join('')}<td>${eur(T.saldo)}</td></tr>
+  </table></div>`;
+}
+
+function vTop() {
+  const { top, topM, T } = calc(S.ano);
+  if (!S.topMes) S.topMes = curMesDefault();
+  const i = MESES.indexOf(S.topMes);
+  const rows = topM[i].slice(0, 10);
+  return `<h2>Top 10 gastos</h2><div class="two">
+    <div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><h3 style="margin:0;flex:1">Do mês</h3>
+      <select class="inp" id="topMes" style="width:auto">${MESES.map(mm => `<option ${mm === S.topMes ? 'selected' : ''}>${mm}</option>`).join('')}</select></div>
+      ${topList(rows, 1, false)}
+      ${rows.length ? `<div class="toprow"><div></div><div><b>Total top 10</b></div><div><b>${eur(rows.reduce((a, r) => a + r[1], 0))}</b></div></div>` : ''}</div>
+    <div class="card"><h3>Do ano (acumulado)</h3>${topList(top.slice(0, 10), T.nm, true)}</div></div>`;
+}
+
+function vAnalise() {
+  const { m, T, contas, saldoIni } = calc(S.ano);
+  const tp = T.ent ? T.saldo / T.ent : 0, rac = T.ent ? T.sai / T.ent : 0;
+  const pos = m.filter(x => x.saldo > 0.004).length, neg = m.filter(x => x.saldo < -0.004).length;
+  const ind = [['Total receitas', eur(T.ent), 'Soma de todas as entradas'], ['Total despesas', eur(T.sai), 'Soma de todas as saídas'],
+    ['Saldo líquido', eur(T.saldo), 'Receitas − despesas'], ['Taxa de poupança', pct(tp), 'Saldo / receitas (ideal > 20%)'],
+    ['Rácio despesa/receita', pct(rac), 'Despesas / receitas (ideal < 80%)'], ['Meses com lançamentos', T.nm, 'Base das médias'],
+    ['Média receita mensal', eur(T.ent / T.nm), ''], ['Média despesa mensal', eur(T.sai / T.nm), ''], ['Média saldo mensal', eur(T.saldo / T.nm), ''],
+    ['Maior receita mensal', eur(Math.max(0, ...m.map(x => x.ent))), ''], ['Maior despesa mensal', eur(Math.max(0, ...m.map(x => x.sai))), ''],
+    ['Meses com saldo +', pos, ''], ['Meses com saldo −', neg, '']];
+  const totD1 = D1.Despesa.map(n => [n, m.reduce((a, x) => a + (x.d1[n] || 0), 0)]);
+  const sD1 = totD1.reduce((a, r) => a + r[1], 0) || 1;
+  const ctl = S.listas.contaControlada;
+  const cl = Object.keys(contas).length ? [...new Set([...S.listas.contas, ...Object.keys(contas)])] : S.listas.contas;
+  return `<h2>Análise financeira ${S.ano}</h2><div class="two">
+  <div class="card"><h3>Indicadores</h3><table class="ind">${ind.map(r => `<tr><td>${r[0]}${r[2] ? `<div class="small muted">${r[2]}</div>` : ''}</td><td><b>${r[1]}</b></td></tr>`).join('')}</table></div>
+  <div><div class="card scroll"><h3>Por Designação - 1</h3><table><tr><th>Categoria</th><th>Total</th><th>% desp.</th><th>Média/mês</th></tr>
+    ${totD1.map(([n, v]) => `<tr><td>${n}</td><td>${eur(v)}</td><td>${pct(v / sD1)}</td><td>${eur(v / T.nm)}</td></tr>`).join('')}</table></div>
+  <div class="card scroll"><h3>Movimentos por conta</h3><table><tr><th>Conta</th><th>Saldo inicial</th><th>Entradas</th><th>Saídas</th><th>Saldo</th></tr>
+    ${cl.map(c => { const x = contas[c] || { ent:0, sai:0 }; const si = +(S.listas.saldosIniciais || {})[c] || 0; const s = si + x.ent - x.sai;
+      return `<tr><td>${esc(c)}${c === ctl ? ' <span class="badge b-warn">controlada</span>' : ''}</td><td>${eur(si)}</td><td>${eur(x.ent)}</td><td>${eur(x.sai)}</td><td class="${cls(s)}"><b>${eur(s)}</b></td></tr>`; }).join('')}
+  </table><div class="small muted" style="margin-top:6px">Só a conta controlada tem todos os movimentos; as outras mostram apenas as transferências e lançamentos feitos nelas.</div></div></div></div>`;
+}
+
+function vCfg() {
+  const L = S.listas;
+  const lists = [['receitaOperacional','Receita Operacional'], ['receitaNaoOperacional','Receita Não Operacional'], ['despesaFixa','Despesa Fixa'],
+    ['despesaVariavel','Despesa Variável'], ['despesaNaoOperacional','Despesa Não Operacional'], ['contas','Contas bancárias']];
+  const sel = S.cfgList || 'despesaVariavel';
+  const items = L[sel] || [];
+  return `<h2>Definições</h2><div class="two"><div>
+  <div class="card"><h3>Importar / exportar</h3>
+    <p class="small muted">Importar lê o ficheiro Excel (meses Jan–Dez, listas Cad1/Cad2/Cad3 e saldos iniciais do BAN) e <b>substitui</b> os lançamentos desse ano.</p>
+    <div class="btns"><label class="btn p">Importar ficheiro Excel<input type="file" id="impFile" accept=".xlsx,.xlsm" hidden></label>
+    <button class="btn" id="btnExp">Exportar ${S.ano} para Excel</button></div><div id="impMsg" class="small" style="margin-top:8px">${esc(S.impMsg || '')}</div></div>
+  <div class="card"><h3>Conta e saldos iniciais</h3>
+    <label class="fl">Conta controlada (a que o fluxo de caixa acompanha)
+      <select class="inp" id="ctl">${L.contas.map(c => `<option ${c === L.contaControlada ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+    <div style="margin-top:10px">${L.contas.map(c => `<label class="fl" style="margin-bottom:8px">Saldo inicial — ${esc(c)}
+      <input class="inp si" data-c="${esc(c)}" inputmode="decimal" value="${(L.saldosIniciais || {})[c] != null ? String(L.saldosIniciais[c]).replace('.', ',') : ''}"></label>`).join('')}</div>
+    <button class="btn p" id="btnSaveSI">Guardar</button></div>
+  <div class="card"><h3>Sessão</h3><div class="small muted">Entrou como ${esc(S.user.email)} · versão ${APP_VERSION}</div>
+    <div class="btns"><button class="btn" id="btnOut">Terminar sessão</button></div></div>
+  </div>
+  <div class="card"><h3>Listas de descrições</h3>
+    <select class="inp" id="cfgList">${lists.map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${n} (${(L[k] || []).length})</option>`).join('')}</select>
+    <div style="display:flex;gap:8px;margin:10px 0"><input class="inp" id="newItem" placeholder="Nova descrição"><button class="btn p" id="btnAdd">Adicionar</button></div>
+    ${items.map((it, i) => `<div class="listed"><span>${esc(it)}</span><button class="iconbtn" data-del="${i}" aria-label="Retirar" title="Retirar">✕</button></div>`).join('') || '<div class="empty">Lista vazia.</div>'}
+    <p class="small muted">Retirar uma descrição não apaga os lançamentos antigos que a usam.</p></div></div>`;
+}
+
+/* ---------------- events ---------------- */
+function go(v) { S.view = v; try { localStorage.setItem('fc_view', v); } catch (e) {} window.scrollTo(0, 0); render(); }
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => go(b.dataset.v));
+$('#btnCfg').onclick = () => go('cfg');
+$('#yearSel').onchange = e => { S.ano = +e.target.value; S.mes = null; S.topMes = null; render(); };
+$('#fab').onclick = () => openForm(null);
+function bindMain() {
+  const M = $('#main');
+  M.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+  M.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { S.mes = b.dataset.chip; render(); });
+  M.querySelectorAll('tr[data-mes]').forEach(r => r.onclick = () => { S.mes = r.dataset.mes; go('lanc'); });
+  M.querySelectorAll('.item[data-id]').forEach(r => r.onclick = () => openForm(S.lancs.find(l => l.id === r.dataset.id)));
+  const q = $('#q'); if (q) q.oninput = e => { S.q = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
+  const tm = $('#topMes'); if (tm) tm.onchange = e => { S.topMes = e.target.value; render(); };
+  if (S.view === 'cfg') bindCfg();
+}
+function bindCfg() {
+  $('#cfgList').onchange = e => { S.cfgList = e.target.value; render(); };
+  $('#btnAdd').onclick = async () => { const v = $('#newItem').value.trim(); const k = $('#cfgList').value; if (!v) return;
+    const arr = [...(S.listas[k] || [])]; if (arr.includes(v)) return toast('Já existe na lista.'); arr.push(v);
+    await saveListas({ [k]:arr }); toast('Adicionado.'); };
+  $('#main').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { const k = $('#cfgList').value; const arr = [...S.listas[k]];
+    const it = arr[+b.dataset.del]; if (!(await ask(`Retirar "${it}" da lista?`, 'Retirar'))) return; arr.splice(+b.dataset.del, 1); await saveListas({ [k]:arr }); });
+  $('#btnSaveSI').onclick = async () => { const si = {}; let bad = false;
+    document.querySelectorAll('.si').forEach(i => { if (i.value.trim() === '') return; const n = parseNum(i.value); if (isNaN(n)) bad = true; else si[i.dataset.c] = n; });
+    if (bad) return toast('Há um saldo inicial inválido.');
+    await saveListas({ saldosIniciais:si, contaControlada:$('#ctl').value }); toast('Guardado.'); };
+  $('#btnOut').onclick = async () => { if (await ask('Terminar a sessão neste aparelho?', 'Terminar')) signOut(auth); };
+  $('#impFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importXlsx(f); };
+  $('#btnExp').onclick = exportXlsx;
+}
+async function saveListas(patch) { await setDoc(doc(db, 'config', 'listas'), { ...S.listas, ...patch }); }
+
+/* ---------------- dialogs ---------------- */
+function closeModal() { $('#modal').innerHTML = ''; document.body.style.overflow = ''; }
+function ask(msg, okLabel = 'OK', danger = true) {
+  return new Promise(res => {
+    $('#modal').innerHTML = `<div class="overlay"><div class="sheet"><p style="margin:6px 0 16px">${esc(msg)}</p>
+      <div class="btns"><button class="btn grow" id="aNo">Cancelar</button><button class="btn ${danger ? 'd' : 'p'} grow" id="aYes">${esc(okLabel)}</button></div></div></div>`;
+    $('#aNo').onclick = () => { closeModal(); res(false); }; $('#aYes').onclick = () => { closeModal(); res(true); };
+  });
+}
+
+/* ---------------- form ---------------- */
+function openForm(l) {
+  const L = S.listas, ed = !!l;
+  const c0 = cycleOf(todayISO());
+  const f = l ? { ...l } : { data:todayISO(), mes:(c0.ano === S.ano || !S.mes) ? c0.mes : S.mes, tipo:'Despesa', d1:'', d2:'', valor:'', venc:'', conta:L.contaControlada || L.contas[0] || '', pago:'Sim', situacao:'Pago' };
+  if (!l && S.view === 'lanc' && S.mes && c0.ano !== S.ano) f.mes = S.mes;
+  let mesTouched = ed;
+  document.body.style.overflow = 'hidden';
+  const draw = () => {
+    const d1opts = D1[f.tipo]; if (!d1opts.includes(f.d1)) f.d1 = f.tipo === 'Transferência' ? d1opts[0] : '';
+    let d2opts = f.tipo === 'Transferência' ? L.contas.filter(c => c !== f.conta) : (L[LKEY[f.d1]] || []);
+    if (f.d2 && !d2opts.includes(f.d2)) d2opts = [f.d2, ...d2opts];
+    const contaLabel = f.tipo === 'Transferência' ? 'Conta de origem (sai daqui)' : 'Conta bancária';
+    $('#modal').innerHTML = `<div class="overlay" id="ov"><form class="sheet f" id="fm" novalidate>
+      <h2><span>${ed ? 'Editar lançamento' : 'Novo lançamento'}</span><button type="button" class="iconbtn" id="fx" aria-label="Fechar">✕</button></h2>
+      <div class="seg">${TIPOS.map(t => `<button type="button" data-t="${t}" class="${t} ${t === f.tipo ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <div class="f2"><label class="fl">Data lançamento<input class="inp" type="date" id="fData" value="${f.data || ''}" required></label>
+        <label class="fl">Mês (folha)<select class="inp" id="fMes">${MESES.map(mm => `<option ${mm === f.mes ? 'selected' : ''}>${mm}</option>`).join('')}</select></label></div>
+      <label class="fl">Designação - 1<select class="inp" id="fD1">${f.tipo === 'Transferência' ? '' : '<option value="">— escolher —</option>'}${d1opts.map(o => `<option ${o === f.d1 ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>
+      <label class="fl">${f.tipo === 'Transferência' ? 'Conta de destino (entra aqui)' : 'Designação - 2'}<select class="inp" id="fD2"><option value="">— escolher —</option>${d2opts.map(o => `<option ${o === f.d2 ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>
+      <div class="f2"><label class="fl">Valor (€)<input class="inp" id="fVal" inputmode="decimal" placeholder="0,00" value="${f.valor !== '' && f.valor != null ? String(f.valor).replace('.', ',') : ''}"></label>
+        <label class="fl">Data vencimento<input class="inp" type="date" id="fVenc" value="${f.venc || ''}"></label></div>
+      <label class="fl">${contaLabel}<select class="inp" id="fConta">${L.contas.map(c => `<option ${c === f.conta ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+      <div class="f2"><label class="fl">Pago<select class="inp" id="fPago">${['Sim','Não'].map(o => `<option ${o === f.pago ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
+        <label class="fl">Situação<select class="inp" id="fSit">${['Pago','Pendente','Cancelado'].map(o => `<option ${o === f.situacao ? 'selected' : ''}>${o}</option>`).join('')}</select></label></div>
+      <div class="err" id="fErr"></div>
+      <div class="btns">${ed ? '<button type="button" class="btn d" id="fDel">Apagar</button>' : ''}<button type="button" class="btn grow" id="fCan">Cancelar</button><button type="submit" class="btn p grow">Guardar</button></div>
+    </form></div>`;
+    const grab = () => { f.data = $('#fData').value; f.mes = $('#fMes').value; f.d1 = $('#fD1').value; f.d2 = $('#fD2').value;
+      f.valor = $('#fVal').value; f.venc = $('#fVenc').value; f.conta = $('#fConta').value; f.pago = $('#fPago').value; f.situacao = $('#fSit').value; };
+    $('#fx').onclick = $('#fCan').onclick = closeModal;
+    document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { grab(); if (f.tipo !== b.dataset.t) { f.tipo = b.dataset.t; f.d1 = ''; f.d2 = ''; } draw(); });
+    $('#fD1').onchange = () => { grab(); f.d2 = ''; draw(); };
+    $('#fConta').onchange = () => { grab(); if (f.tipo === 'Transferência' && f.d2 === f.conta) f.d2 = ''; draw(); };
+    $('#fMes').onchange = () => { mesTouched = true; };
+    $('#fData').onchange = () => { grab(); if (f.data && !mesTouched) { f.mes = cycleOf(f.data).mes; $('#fMes').value = f.mes; } };
+    if ($('#fDel')) $('#fDel').onclick = async () => { if (!(await ask('Apagar este lançamento?', 'Apagar'))) return openForm(l);
+      try { await deleteDoc(doc(db, 'lancamentos', l.id)); toast('Apagado.'); } catch (e) { showErr(e); } };
+    $('#fm').onsubmit = async e => { e.preventDefault(); grab();
+      const v = parseNum(f.valor); const er = $('#fErr');
+      if (!f.data) return er.textContent = 'Falta a data.';
+      if (!f.d1) return er.textContent = 'Escolha a Designação - 1.';
+      if (!f.d2) return er.textContent = f.tipo === 'Transferência' ? 'Escolha a conta de destino.' : 'Escolha a Designação - 2.';
+      if (!(v > 0)) return er.textContent = 'O valor tem de ser maior que zero.';
+      if (f.tipo === 'Transferência' && f.d2 === f.conta) return er.textContent = 'A conta de origem e a de destino têm de ser diferentes.';
+      const rec = { data:f.data, mes:f.mes, ano:anoFor(f.data, f.mes), tipo:f.tipo, d1:f.d1, d2:f.d2, valor:r2(v), venc:f.venc || f.data,
+                    conta:f.conta, pago:f.pago, situacao:f.situacao };
+      try {
+        if (ed) await updateDoc(doc(db, 'lancamentos', l.id), rec);
+        else await addDoc(collection(db, 'lancamentos'), { ...rec, ord:Date.now(), criado:serverTimestamp() });
+        closeModal(); S.ano = rec.ano; S.mes = rec.mes; toast(ed ? 'Alterado.' : 'Lançado.');
+        if (S.view !== 'lanc') go('lanc'); else render();
+      } catch (err) { showErr(err); }
+    };
+  };
+  draw();
+}
+
+/* ---------------- Excel import/export ---------------- */
+let xlsxP = null;
+function loadXLSX() { return xlsxP ||= new Promise((res, rej) => { if (window.XLSX) return res(window.XLSX);
+  const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = () => res(window.XLSX); s.onerror = () => { xlsxP = null; rej(new Error('Não foi possível carregar o leitor de Excel (está sem internet?).')); };
+  document.head.appendChild(s); }); }
+const serialISO = n => { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000); return d.toISOString().slice(0, 10); };
+function cellISO(v) { if (typeof v === 'number') return serialISO(v);
+  if (typeof v === 'string') { const m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  return ''; }
+async function importXlsx(file) {
+  const msg = { set textContent(t) { S.impMsg = t; const e = $('#impMsg'); if (e) e.textContent = t; } };
+  msg.textContent = 'A ler o ficheiro…';
+  try {
+    const XLSX = await loadXLSX();
+    const wb = XLSX.read(await file.arrayBuffer(), { type:'array' });
+    const miss = MESES.filter(m => !wb.Sheets[m]); if (miss.length === 12) throw new Error('O ficheiro não tem as folhas Jan…Dez.');
+    const val = (ws, ref) => ws && ws[ref] ? ws[ref].v : undefined;
+    let ano = null; const t = String(val(wb.Sheets.Jan, 'A1') || ''); const ym = t.match(/(20\d\d)/); if (ym) ano = +ym[1];
+    if (!ano) { msg.textContent = ''; const a = prompt('De que ano são os lançamentos?', String(new Date().getFullYear())); if (!a) return; ano = +a; }
+    const rows = [];
+    MESES.forEach(m => { const ws = wb.Sheets[m]; if (!ws) return;
+      for (let r = 4; r <= 1000; r++) { const tipo = val(ws, 'B' + r); if (tipo == null || tipo === '') continue;
+        const data = cellISO(val(ws, 'A' + r));
+        rows.push({ data, mes:m, ano, tipo:String(tipo).trim(), d1:String(val(ws, 'C' + r) ?? '').trim(),
+          d2:String(val(ws, 'D' + r) ?? '').trim(), valor:r2(+val(ws, 'E' + r) || 0), venc:cellISO(val(ws, 'F' + r)) || data,
+          conta:String(val(ws, 'G' + r) ?? '').trim(), pago:String(val(ws, 'H' + r) ?? 'Sim').trim() || 'Sim',
+          situacao:String(val(ws, 'I' + r) ?? 'Pago').trim() || 'Pago', ord:r }); } });
+    const col = (sh, c) => { const ws = wb.Sheets[sh]; const out = []; if (!ws) return out;
+      for (let r = 2; r <= 500; r++) { const v = val(ws, c + r); if (v != null && String(v).trim() !== '') out.push(String(v).trim()); } return out; };
+    const contas = col('Cad3', 'B');
+    const saldos = {}; const ban = wb.Sheets.BAN;
+    contas.forEach((c, k) => { const v = val(ban, 'C' + (4 + k)); const n = typeof v === 'number' ? v : parseNum(v); if (!isNaN(n) && v !== undefined && v !== '') saldos[c] = n; });
+    const listas = { receitaOperacional:col('Cad1', 'B'), receitaNaoOperacional:col('Cad1', 'D'), despesaFixa:col('Cad2', 'B'),
+      despesaVariavel:col('Cad2', 'D'), despesaNaoOperacional:col('Cad2', 'F'), contas, saldosIniciais:saldos,
+      contaControlada:contas.includes('Novo Banco') ? 'Novo Banco' : (S.listas.contaControlada || contas[0] || '') };
+    const existing = S.lancs.filter(l => l.ano === ano);
+    msg.textContent = '';
+    if (!(await ask(`Encontrei ${rows.length} lançamentos de ${ano} e ${contas.length} conta(s).` + (existing.length ? ` Os ${existing.length} lançamentos de ${ano} que já estão na app vão ser substituídos.` : '') + ' Continuar?', 'Importar', false))) return;
+    msg.textContent = 'A gravar…';
+    const ops = [...existing.map(l => ['del', l.id]), ...rows.map(r => ['add', r])];
+    for (let i = 0; i < ops.length; i += 400) { const b = writeBatch(db);
+      ops.slice(i, i + 400).forEach(([k, x]) => k === 'del' ? b.delete(doc(db, 'lancamentos', x)) : b.set(doc(collection(db, 'lancamentos')), x));
+      await b.commit(); msg.textContent = `A gravar… ${Math.min(i + 400, ops.length)}/${ops.length}`; }
+    await setDoc(doc(db, 'config', 'listas'), listas);
+    S.ano = ano; S.mes = null; msg.textContent = `Importados ${rows.length} lançamentos de ${ano}.`; toast('Importação concluída.');
+  } catch (e) { console.error(e); msg.textContent = 'Erro: ' + e.message; }
+}
+async function exportXlsx() {
+  try {
+    const XLSX = await loadXLSX(); const wb = XLSX.utils.book_new();
+    const H = ['Data Lançamento','Tipo','Designação - 1','Designação - 2','Valor','Data Vencimento','Conta Bancária','Pago','Situação'];
+    const toD = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000; };
+    MESES.forEach((m, i) => {
+      const L = doAno().filter(l => l.mes === m).sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.ord || 0) - (b.ord || 0));
+      const aoa = [[`LANÇAMENTOS — ${MESES_L[i].toUpperCase()} ${S.ano}`], [], H,
+        ...L.map(l => [toD(l.data), l.tipo, l.d1, l.d2, l.valor, toD(l.venc), l.conta, l.pago, l.situacao])];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      for (let r = 4; r <= L.length + 3; r++) for (const c of ['A', 'F']) { const x = ws[c + r]; if (x && x.t === 'n') x.z = 'dd/mm/yyyy'; }
+      for (let r = 4; r <= L.length + 3; r++) { const x = ws['E' + r]; if (x) x.z = '#,##0.00 "€"'; }
+      ws['!cols'] = [16, 14, 24, 40, 12, 16, 16, 8, 12].map(w => ({ wch:w }));
+      XLSX.utils.book_append_sheet(wb, ws, m);
+    });
+    const Ls = S.listas; const mx = Math.max(...['receitaOperacional','receitaNaoOperacional','despesaFixa','despesaVariavel','despesaNaoOperacional','contas'].map(k => (Ls[k] || []).length));
+    const la = [['Receita Operacional','Receita Não Operacional','Despesa Fixa','Despesa Variável','Despesa Não Operacional','Contas','Saldo inicial']];
+    for (let i = 0; i < mx; i++) la.push(['receitaOperacional','receitaNaoOperacional','despesaFixa','despesaVariavel','despesaNaoOperacional','contas']
+      .map(k => (Ls[k] || [])[i] ?? '').concat([(Ls.contas[i] != null && Ls.saldosIniciais[Ls.contas[i]] != null) ? Ls.saldosIniciais[Ls.contas[i]] : '']));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(la), 'Listas');
+    XLSX.writeFile(wb, `FluxoCaixa_${S.ano}_app.xlsx`);
+  } catch (e) { toast('Erro: ' + e.message, 5000); }
+}
+
+/* ---------------- service worker ---------------- */
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+window.__fc = S;
+</script>
+</body>
+</html>
