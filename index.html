@@ -131,6 +131,19 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
 .opt.sel{font-weight:700}
 .optc{font-size:11px;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
 .d2ok{font-size:11px;color:var(--rec);min-height:14px}
+.mov{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.mov:hover{background:var(--bg)}
+.mov .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mov .s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mov .v{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mov .b{font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mov.ant{cursor:default;background:var(--bg);border-radius:8px}
+.xhead{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+@media (min-width:700px){.xhead{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.xhead>div{border-radius:12px;padding:8px 10px;background:var(--card);box-shadow:var(--shadow)}
+.xhead .l{font-size:11px;color:var(--muted)}.xhead .v{font-weight:700;font-variant-numeric:tabular-nums}
+.selrow{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.selrow select{flex:1;min-width:140px}
 </style>
 </head>
 <body>
@@ -159,6 +172,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
     <button data-v="lanc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lançamentos</button>
     <button data-v="fluxo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/></svg>Fluxo</button>
     <button data-v="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Top 10</button>
+    <button data-v="bancos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></svg>Bancos</button>
     <button data-v="analise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Análise</button>
   </nav>
   <main id="main"></main>
@@ -175,7 +189,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
          onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
@@ -286,11 +300,11 @@ function render() {
   if (!S.ano || !ys.includes(S.ano)) S.ano = ys.includes(lastDataYear()) ? lastDataYear() : ys[ys.length - 1];
   $('#yearSel').innerHTML = ys.map(y => `<option ${y === S.ano ? 'selected' : ''}>${y}</option>`).join('');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
-  $('#fab').classList.toggle('hidden', !['inicio','lanc'].includes(S.view));
+  $('#fab').classList.toggle('hidden', !['inicio','lanc','bancos'].includes(S.view));
   const main = $('#main');
   if (!S.loadedL || !S.loadedC) { main.innerHTML = '<div class="empty">A carregar…</div>'; return; }
   const noLists = !S.listas.contas.length;
-  const V = { inicio:vInicio, lanc:vLanc, fluxo:vFluxo, top:vTop, analise:vAnalise, cfg:vCfg }[S.view] || vInicio;
+  const V = { inicio:vInicio, lanc:vLanc, fluxo:vFluxo, top:vTop, bancos:vBancos, analise:vAnalise, cfg:vCfg }[S.view] || vInicio;
   main.innerHTML = (noLists && S.view !== 'cfg')
     ? `<div class="card empty"><p><b>Ainda não há dados.</b></p><p>Vá a Definições e importe o seu ficheiro Excel (FluxoCaixa_2026_v17.xlsx) ou crie as listas à mão.</p>
        <button class="btn p" data-go="cfg">Abrir Definições</button></div>`
@@ -395,6 +409,59 @@ function vTop() {
     <div class="card"><h3>Do ano (acumulado)</h3>${topList(top.slice(0, 10), T.nm, true)}</div></div>`;
 }
 
+/* ---------------- extrato bancário ---------------- */
+function movimentos(banco, ano) {
+  const out = [];
+  for (const l of S.lancs) {
+    if (l.ano !== ano) continue; const v = +l.valor || 0;
+    let ent = 0, sai = 0, desc = l.d2, sub = l.d1;
+    if (l.tipo === 'Receita' && l.conta === banco) ent = v;
+    else if (l.tipo === 'Despesa' && l.conta === banco) sai = v;
+    else if (l.tipo === 'Transferência') {
+      if (l.conta === banco) { sai = v; desc = 'Transferência para ' + l.d2; sub = 'Transferência entre Contas'; }
+      else if (l.d2 === banco) { ent = v; desc = 'Transferência de ' + l.conta; sub = 'Transferência entre Contas'; }
+    }
+    if (ent || sai) out.push({ l, data:l.data || '', ord:l.ord || 0, desc, sub, ent, sai });
+  }
+  out.sort((a, b) => a.data.localeCompare(b.data) || a.ord - b.ord);
+  let s = +(S.listas.saldosIniciais || {})[banco] || 0;
+  for (const m of out) { s = r2(s + m.ent - m.sai); m.saldo = s; }
+  return out;
+}
+function vBancos() {
+  const contas = S.listas.contas;
+  if (!S.banco || !contas.includes(S.banco)) S.banco = S.listas.contaControlada || contas[0];
+  if (!S.bMes) S.bMes = 'Ano';
+  const si = (S.listas.saldosIniciais || {})[S.banco];
+  const ini = +si || 0;
+  const all = movimentos(S.banco, S.ano);
+  const fim = all.length ? all[all.length - 1].saldo : ini;
+  const rows = S.bMes === 'Ano' ? all : all.filter(m => m.l.mes === S.bMes);
+  const ent = rows.reduce((a, m) => a + m.ent, 0), sai = rows.reduce((a, m) => a + m.sai, 0);
+  const idx0 = rows.length ? all.indexOf(rows[0]) : -1;
+  const ant = S.bMes === 'Ano' ? ini : (idx0 > 0 ? all[idx0 - 1].saldo : (idx0 === 0 ? ini : (() => {
+      const mi = MESES.indexOf(S.bMes); const prev = all.filter(m => MESES.indexOf(m.l.mes) < mi); return prev.length ? prev[prev.length - 1].saldo : ini; })()));
+  const fimP = rows.length ? rows[rows.length - 1].saldo : ant;
+  const per = S.bMes === 'Ano' ? `${S.ano}` : `${MESES_L[MESES.indexOf(S.bMes)]} ${S.ano}`;
+  return `<h2>Extrato bancário</h2>
+  <div class="selrow"><select class="inp" id="bBanco">${contas.map(c => `<option ${c === S.banco ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+    <select class="inp" id="bMes"><option value="Ano" ${S.bMes === 'Ano' ? 'selected' : ''}>Ano inteiro</option>${MESES.map(mm => `<option ${mm === S.bMes ? 'selected' : ''}>${mm}</option>`).join('')}</select></div>
+  ${si == null || si === '' ? `<div class="card small" style="background:var(--des-bg);color:var(--des)">O saldo inicial de ${esc(S.banco)} não está definido (conta como 0,00 €). Defina-o em <a href="#" data-go="cfg">Definições</a>.</div>` : ''}
+  <div class="xhead">
+    <div><div class="l">${S.bMes === 'Ano' ? 'Saldo inicial' : 'Saldo anterior'}</div><div class="v">${eur(ant)}</div></div>
+    <div><div class="l">Entradas ${per}</div><div class="v pos">${eur(ent)}</div></div>
+    <div><div class="l">Saídas ${per}</div><div class="v neg">${eur(sai)}</div></div>
+    <div><div class="l">${S.bMes === 'Ano' ? 'Saldo atual' : 'Saldo no fim do mês'}</div><div class="v ${cls(fimP)}">${eur(fimP)}</div></div>
+  </div>
+  <div class="card">
+    <div class="mov ant"><div><div class="t">${S.bMes === 'Ano' ? 'Saldo inicial' : 'Saldo anterior'}</div></div><div><div class="v">${eur(ant)}</div></div></div>
+    ${rows.length ? rows.map(m => `<div class="mov" data-id="${m.l.id}"><div style="min-width:0"><div class="t">${esc(m.desc)}</div><div class="s">${dPT(m.data)} · ${esc(m.sub)}</div></div>
+      <div><div class="v ${m.ent ? 'pos' : 'neg'}">${m.ent ? '+' + eur(m.ent) : '−' + eur(m.sai)}</div><div class="b">saldo ${eur(m.saldo)}</div></div></div>`).join('')
+      : '<div class="empty">Sem movimentos neste período.</div>'}
+    <div class="small muted" style="margin-top:8px">${rows.length} movimento(s)${S.bMes === 'Ano' ? '' : ` · saldo atual do banco: ${eur(fim)}`}</div>
+  </div>`;
+}
+
 function vAnalise() {
   const { m, T, contas, saldoIni } = calc(S.ano);
   const tp = T.ent ? T.saldo / T.ent : 0, rac = T.ent ? T.sai / T.ent : 0;
@@ -460,6 +527,10 @@ function bindMain() {
   M.querySelectorAll('.item[data-id]').forEach(r => r.onclick = () => openForm(S.lancs.find(l => l.id === r.dataset.id)));
   const q = $('#q'); if (q) q.oninput = e => { S.q = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
   const tm = $('#topMes'); if (tm) tm.onchange = e => { S.topMes = e.target.value; render(); };
+  const bb = $('#bBanco'); if (bb) bb.onchange = e => { S.banco = e.target.value; render(); };
+  const bm = $('#bMes'); if (bm) bm.onchange = e => { S.bMes = e.target.value; render(); };
+  M.querySelectorAll('.mov[data-id]').forEach(r => r.onclick = () => openForm(S.lancs.find(l => l.id === r.dataset.id)));
+  M.querySelectorAll('a[data-go]').forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.go); });
   if (S.view === 'cfg') bindCfg();
 }
 function bindCfg() {
@@ -493,7 +564,7 @@ function ask(msg, okLabel = 'OK', danger = true) {
 function openForm(l) {
   const L = S.listas, ed = !!l;
   const c0 = cycleOf(todayISO());
-  const f = l ? { ...l } : { data:todayISO(), mes:(c0.ano === S.ano || !S.mes) ? c0.mes : S.mes, tipo:'Despesa', d1:'', d2:'', valor:'', venc:'', conta:L.contaControlada || L.contas[0] || '', pago:'Sim', situacao:'Pago' };
+  const f = l ? { ...l } : { data:todayISO(), mes:(c0.ano === S.ano || !S.mes) ? c0.mes : S.mes, tipo:'Despesa', d1:'', d2:'', valor:'', venc:'', conta:(S.view === 'bancos' && S.banco) || L.contaControlada || L.contas[0] || '', pago:'Sim', situacao:'Pago' };
   if (!l && S.view === 'lanc' && S.mes && c0.ano !== S.ano) f.mes = S.mes;
   let mesTouched = ed, focusD2 = false;
   document.body.style.overflow = 'hidden';
@@ -648,6 +719,16 @@ async function exportXlsx() {
     for (let i = 0; i < mx; i++) la.push(['receitaOperacional','receitaNaoOperacional','despesaFixa','despesaVariavel','despesaNaoOperacional','contas']
       .map(k => (Ls[k] || [])[i] ?? '').concat([(Ls.contas[i] != null && Ls.saldosIniciais[Ls.contas[i]] != null) ? Ls.saldosIniciais[Ls.contas[i]] : '']));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(la), 'Listas');
+    Ls.contas.forEach(c => {
+      const mv = movimentos(c, S.ano); const ini = +(Ls.saldosIniciais || {})[c] || 0;
+      const aoa = [[`EXTRATO — ${c.toUpperCase()} — ${S.ano}`], [], ['Data', 'Mês', 'Descrição', 'Designação - 1', 'Entrada', 'Saída', 'Saldo'],
+        ['', '', 'Saldo inicial', '', '', '', ini], ...mv.map(m => [toD(m.data), m.l.mes, m.desc, m.sub, m.ent || '', m.sai || '', m.saldo])];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      for (let r = 5; r <= mv.length + 4; r++) { const x = ws['A' + r]; if (x && x.t === 'n') x.z = 'dd/mm/yyyy'; }
+      for (let r = 4; r <= mv.length + 4; r++) for (const k of ['E', 'F', 'G']) { const x = ws[k + r]; if (x && x.t === 'n') x.z = '#,##0.00 "€"'; }
+      ws['!cols'] = [12, 6, 40, 26, 12, 12, 12].map(w => ({ wch:w }));
+      XLSX.utils.book_append_sheet(wb, ws, ('Extrato ' + c).replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 31));
+    });
     XLSX.writeFile(wb, `FluxoCaixa_${S.ano}_app.xlsx`);
   } catch (e) { toast('Erro: ' + e.message, 5000); }
 }

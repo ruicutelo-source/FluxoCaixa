@@ -1,0 +1,41 @@
+FLUXO DE CAIXA (app) — HISTÓRICO DE VERSÕES
+Endereço: https://ruicutelo-source.github.io/FluxoCaixa/
+A versão em uso aparece na app em Definições (roda dentada) > Sessão.
+
+------------------------------------------------------------
+v1.2.0 — 24/11/2026   (sw.js: fluxo-caixa-v3)   << ATUAL
+------------------------------------------------------------
+- Novo ecrã "Bancos": extrato bancário de cada banco
+  (saldo inicial, entradas, saídas, saldo atual e saldo
+  linha a linha), por ano inteiro ou por mês.
+- As transferências aparecem nos dois bancos
+  (saída num, entrada no outro).
+- Exportar para Excel passa a incluir uma folha
+  "Extrato <banco>" para cada banco.
+Ficheiros alterados: index.html, sw.js
+
+------------------------------------------------------------
+v1.1.0 — 24/11/2026   (sw.js: fluxo-caixa-v2)
+------------------------------------------------------------
+- Designação-2 com pesquisa: escreve parte do nome e
+  escolhe na lista (sem acentos/maiúsculas, palavras por
+  qualquer ordem). Só aceita opções da lista da
+  Designação-1 escolhida.
+- Texto dos campos maior no telemóvel.
+Ficheiros alterados: index.html, sw.js
+
+------------------------------------------------------------
+v1.0.0 — 25/10/2026   (sw.js: fluxo-caixa-v1)
+------------------------------------------------------------
+- Primeira versão: Início, Lançamentos, Fluxo, Top 10,
+  Análise, Definições; importar/exportar Excel; Firebase.
+Ficheiros: index.html, firebase-config.js, sw.js,
+manifest.json, icon-192.png, icon-512.png
+
+------------------------------------------------------------
+COMO ATUALIZAR
+1. Descompactar este zip.
+2. GitHub > repositório FluxoCaixa > Add file > Upload files.
+3. Arrastar os ficheiros (os nomes têm de ficar exatamente
+   iguais: index.html, sw.js, ...). Commit changes.
+4. Esperar 2 minutos, fechar e voltar a abrir a app.
