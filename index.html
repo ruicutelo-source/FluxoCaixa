@@ -95,8 +95,8 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
 .sheet h2 span{flex:1}
 .f{display:grid;gap:12px}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-label.fl{display:grid;gap:4px;font-size:12px;color:var(--muted)}
-.inp{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-height:42px}
+.fl{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.inp{width:100%;font-size:15px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-height:42px}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{flex:1;border:0;background:var(--bg);padding:10px 4px;cursor:pointer}
 .seg button.on.Receita{background:var(--rec);color:#fff}.seg button.on.Despesa{background:var(--des);color:#fff}.seg button.on.Transferência{background:var(--tr);color:#fff}
@@ -121,6 +121,16 @@ label.fl{display:grid;gap:4px;font-size:12px;color:var(--muted)}
 .listed{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .listed span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .empty{padding:28px 12px;text-align:center;color:var(--muted)}
+.combo{position:relative}
+.combo .inp{padding-right:40px}
+.combo .cx{position:absolute;right:4px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.opts{border:1px solid var(--line);border-radius:10px;max-height:240px;overflow:auto;background:var(--card);margin-top:4px}
+.opt{display:block;width:100%;text-align:left;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;color:var(--ink);font-size:14px}
+.opt:last-child{border-bottom:0}
+.opt:hover,.opt.act{background:var(--bg)}
+.opt.sel{font-weight:700}
+.optc{font-size:11px;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
+.d2ok{font-size:11px;color:var(--rec);min-height:14px}
 </style>
 </head>
 <body>
@@ -165,7 +175,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
          onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
@@ -197,6 +207,16 @@ function cycleOf(iso) { const [y, m, d] = iso.split('-').map(Number); let mi = m
   if (d >= 17) { mi++; if (mi > 11) { mi = 0; yy++; } } return { mes: MESES[mi], ano: yy }; }
 function anoFor(iso, mes) { const [y, m] = iso.split('-').map(Number); const mi = MESES.indexOf(mes);
   if (mi === 0 && m === 12) return y + 1; if (mi === 11 && m === 1) return y - 1; return y; }
+// pesquisa sem acentos, sem maiúsculas, palavras por qualquer ordem, ignora hífens/barras
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function filtra(opts, q) {
+  const tk = norm(q).split(' ').filter(Boolean);
+  const lst = [...opts].sort((a, b) => a.localeCompare(b, 'pt'));
+  if (!tk.length) return lst;
+  const hit = lst.filter(o => { const n = norm(o), c = n.replace(/ /g, ''); return tk.every(t => n.includes(t) || c.includes(t)); });
+  const rank = o => { const n = norm(o); return n.startsWith(tk[0]) ? 0 : (' ' + n).includes(' ' + tk[0]) ? 1 : 2; };
+  return hit.map((o, i) => [o, rank(o), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
+}
 function toast(msg, ms = 2600) { document.querySelectorAll('.toast').forEach(x => x.remove()); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
 
@@ -475,20 +495,27 @@ function openForm(l) {
   const c0 = cycleOf(todayISO());
   const f = l ? { ...l } : { data:todayISO(), mes:(c0.ano === S.ano || !S.mes) ? c0.mes : S.mes, tipo:'Despesa', d1:'', d2:'', valor:'', venc:'', conta:L.contaControlada || L.contas[0] || '', pago:'Sim', situacao:'Pago' };
   if (!l && S.view === 'lanc' && S.mes && c0.ano !== S.ano) f.mes = S.mes;
-  let mesTouched = ed;
+  let mesTouched = ed, focusD2 = false;
   document.body.style.overflow = 'hidden';
   const draw = () => {
     const d1opts = D1[f.tipo]; if (!d1opts.includes(f.d1)) f.d1 = f.tipo === 'Transferência' ? d1opts[0] : '';
     let d2opts = f.tipo === 'Transferência' ? L.contas.filter(c => c !== f.conta) : (L[LKEY[f.d1]] || []);
     if (f.d2 && !d2opts.includes(f.d2)) d2opts = [f.d2, ...d2opts];
     const contaLabel = f.tipo === 'Transferência' ? 'Conta de origem (sai daqui)' : 'Conta bancária';
+    const d2on = f.tipo === 'Transferência' || !!f.d1;
     $('#modal').innerHTML = `<div class="overlay" id="ov"><form class="sheet f" id="fm" novalidate>
       <h2><span>${ed ? 'Editar lançamento' : 'Novo lançamento'}</span><button type="button" class="iconbtn" id="fx" aria-label="Fechar">✕</button></h2>
       <div class="seg">${TIPOS.map(t => `<button type="button" data-t="${t}" class="${t} ${t === f.tipo ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="f2"><label class="fl">Data lançamento<input class="inp" type="date" id="fData" value="${f.data || ''}" required></label>
         <label class="fl">Mês (folha)<select class="inp" id="fMes">${MESES.map(mm => `<option ${mm === f.mes ? 'selected' : ''}>${mm}</option>`).join('')}</select></label></div>
       <label class="fl">Designação - 1<select class="inp" id="fD1">${f.tipo === 'Transferência' ? '' : '<option value="">— escolher —</option>'}${d1opts.map(o => `<option ${o === f.d1 ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>
-      <label class="fl">${f.tipo === 'Transferência' ? 'Conta de destino (entra aqui)' : 'Designação - 2'}<select class="inp" id="fD2"><option value="">— escolher —</option>${d2opts.map(o => `<option ${o === f.d2 ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>
+      <div class="fl"><span>${f.tipo === 'Transferência' ? 'Conta de destino (entra aqui)' : 'Designação - 2'}</span>
+        <div class="combo"><input class="inp" id="fD2q" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"
+          placeholder="${d2on ? 'Escreva para procurar…' : 'Escolha primeiro a Designação - 1'}" value="${esc(f.d2)}" ${d2on ? '' : 'disabled'}>
+          <button type="button" class="iconbtn cx" id="fD2x" aria-label="Limpar" title="Limpar" ${d2on ? '' : 'disabled'}>✕</button></div>
+        <div class="opts hidden" id="fD2list" role="listbox"></div>
+        <div class="d2ok" id="fD2ok">${f.d2 ? '✓ escolhida' : ''}</div>
+        <input type="hidden" id="fD2" value="${esc(f.d2)}"></div>
       <div class="f2"><label class="fl">Valor (€)<input class="inp" id="fVal" inputmode="decimal" placeholder="0,00" value="${f.valor !== '' && f.valor != null ? String(f.valor).replace('.', ',') : ''}"></label>
         <label class="fl">Data vencimento<input class="inp" type="date" id="fVenc" value="${f.venc || ''}"></label></div>
       <label class="fl">${contaLabel}<select class="inp" id="fConta">${L.contas.map(c => `<option ${c === f.conta ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
@@ -501,7 +528,33 @@ function openForm(l) {
       f.valor = $('#fVal').value; f.venc = $('#fVenc').value; f.conta = $('#fConta').value; f.pago = $('#fPago').value; f.situacao = $('#fSit').value; };
     $('#fx').onclick = $('#fCan').onclick = closeModal;
     document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { grab(); if (f.tipo !== b.dataset.t) { f.tipo = b.dataset.t; f.d1 = ''; f.d2 = ''; } draw(); });
-    $('#fD1').onchange = () => { grab(); f.d2 = ''; draw(); };
+    $('#fD1').onchange = () => { grab(); f.d2 = ''; focusD2 = true; draw(); };
+    // ---- Designação-2 com pesquisa ----
+    const q2 = $('#fD2q'), box = $('#fD2list'), hid = $('#fD2'), ok = $('#fD2ok');
+    let act = 0, shown = [], tBlur = null;
+    const escolhe = o => { hid.value = o; q2.value = o; ok.textContent = '✓ escolhida'; box.classList.add('hidden'); };
+    const lista = q => {
+      shown = filtra(d2opts, q); act = 0;
+      box.innerHTML = `<div class="optc">${shown.length} de ${d2opts.length}${q.trim() ? ` para «${esc(q.trim())}»` : ''}</div>` +
+        (shown.length ? shown.map((o, i) => `<button type="button" class="opt ${i === 0 ? 'act' : ''} ${o === hid.value ? 'sel' : ''}" data-i="${i}">${esc(o)}</button>`).join('')
+                      : '<div class="optc">Nada encontrado. Experimente outra palavra.</div>');
+      box.classList.remove('hidden');
+      box.querySelectorAll('.opt').forEach(b => b.onpointerdown = e => { e.preventDefault(); escolhe(shown[+b.dataset.i]); });
+    };
+    const marca = () => box.querySelectorAll('.opt').forEach((b, i) => { b.classList.toggle('act', i === act); if (i === act) b.scrollIntoView({ block:'nearest' }); });
+    if (!q2.disabled) {
+      q2.onfocus = () => { clearTimeout(tBlur); q2.select(); lista(q2.value === hid.value ? '' : q2.value); };
+      q2.oninput = () => { const ex = d2opts.find(o => norm(o) === norm(q2.value));
+        hid.value = ex || ''; ok.textContent = ex ? '✓ escolhida' : ''; lista(q2.value); };
+      q2.onkeydown = e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); act = Math.min(act + 1, shown.length - 1); marca(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); act = Math.max(act - 1, 0); marca(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (shown[act]) { escolhe(shown[act]); q2.blur(); } }
+        else if (e.key === 'Escape') { box.classList.add('hidden'); } };
+      q2.onblur = () => tBlur = setTimeout(() => { box.classList.add('hidden'); if (!hid.value) { q2.value = ''; } else q2.value = hid.value; }, 120);
+      $('#fD2x').onclick = () => { hid.value = ''; q2.value = ''; ok.textContent = ''; q2.focus(); };
+      if (focusD2) { focusD2 = false; q2.focus(); }
+    }
     $('#fConta').onchange = () => { grab(); if (f.tipo === 'Transferência' && f.d2 === f.conta) f.d2 = ''; draw(); };
     $('#fMes').onchange = () => { mesTouched = true; };
     $('#fData').onchange = () => { grab(); if (f.data && !mesTouched) { f.mes = cycleOf(f.data).mes; $('#fMes').value = f.mes; } };
@@ -511,7 +564,7 @@ function openForm(l) {
       const v = parseNum(f.valor); const er = $('#fErr');
       if (!f.data) return er.textContent = 'Falta a data.';
       if (!f.d1) return er.textContent = 'Escolha a Designação - 1.';
-      if (!f.d2) return er.textContent = f.tipo === 'Transferência' ? 'Escolha a conta de destino.' : 'Escolha a Designação - 2.';
+      if (!f.d2) return er.textContent = f.tipo === 'Transferência' ? 'Escolha a conta de destino na lista.' : 'Escolha a Designação - 2 na lista (escreva e toque numa opção).';
       if (!(v > 0)) return er.textContent = 'O valor tem de ser maior que zero.';
       if (f.tipo === 'Transferência' && f.d2 === f.conta) return er.textContent = 'A conta de origem e a de destino têm de ser diferentes.';
       const rec = { data:f.data, mes:f.mes, ano:anoFor(f.data, f.mes), tipo:f.tipo, d1:f.d1, d2:f.d2, valor:r2(v), venc:f.venc || f.data,
