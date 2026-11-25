@@ -222,7 +222,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
          onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
@@ -322,22 +322,23 @@ function calc(ano) {
   T.saldo = T.ent - T.sai; T.nm = m.filter(x => x.used).length || 1;
   const saldoIni = +(S.listas.saldosIniciais || {})[ctl] || 0;
   T.saldoReal = saldoIni + T.saldo;
-  const rank = o => Object.entries(o).filter(([k, v]) => v > 0.0001).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const rank = o => Object.entries(o).filter(([k, v]) => v > 0.0001 && etqOf(k)[1] !== 'P').sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   return { m, T, top:rank(desD2), topM:desD2m.map(rank), contas, saldoIni };
 }
 
 /* ---------------- análise financeira (v1.4.0) ---------------- */
 const APP_DATA = '25/11/2026';
 const NOVIDADES = [
+  'Nova designação "Levantamento para Poupança": conta como poupança na taxa de poupança e na regra 50/30/20, e não entra no Top 10 Gastos.',
   'Início: análise financeira com índices reconhecidos (habitação 33%, créditos 35%/45%, 50/30/20, poupança, fundo de emergência).',
   'Avisos: o quê, onde e quando — picos, tendências, ritmo do mês, conta a descoberto.',
   'Definições: limites editáveis, poupança fora dos bancos e etiquetas de cada designação.',
   'A versão passa a estar à vista no topo das Definições.'
 ];
-const GRUPOS = ['Habitação','Crédito e dívidas','Alimentação','Casa e consumos','Casa (manutenção)','Saúde','Transportes','Pessoal e família','Impostos e taxas','Custos bancários','Lazer e extras','Outros','Não classificado'];
+const GRUPOS = ['Habitação','Crédito e dívidas','Alimentação','Casa e consumos','Casa (manutenção)','Saúde','Transportes','Pessoal e família','Impostos e taxas','Custos bancários','Lazer e extras','Poupança','Outros','Não classificado'];
 const CLASSES = { N:'Necessidade', D:'Desejo', P:'Poupança', X:'Não classificado' };
 const GCOR = { 'Habitação':'#8a3a22','Crédito e dívidas':'#b3261e','Alimentação':'#2e9d57','Casa e consumos':'#2f5d8a','Casa (manutenção)':'#5b7fa8','Saúde':'#7b4bb7',
-  'Transportes':'#d9822b','Pessoal e família':'#c2558f','Impostos e taxas':'#6d6d6d','Custos bancários':'#9a9a9a','Lazer e extras':'#d9a400','Outros':'#a07b5a','Não classificado':'#444' };
+  'Transportes':'#d9822b','Pessoal e família':'#c2558f','Impostos e taxas':'#6d6d6d','Custos bancários':'#9a9a9a','Lazer e extras':'#d9a400','Poupança':'#2e9e5b','Outros':'#a07b5a','Não classificado':'#444' };
 const ETQ = {}; // etiqueta padrão: designação → [grupo, classe]
 const etq = (g, c, ...ns) => ns.forEach(n => ETQ[n] = [g, c]);
 etq('Habitação','N','Condomínio','IMI (Imposto Municipal sobre Imóveis)','IMI (Mensalizado)','IMI (Imposto Municipal Imóveis)','Seguro Multirriscos (Habitação)','Seguro Multiriscos (Habitação)','Empréstimo / Renda da Casa');
@@ -357,6 +358,7 @@ etq('Custos bancários','N','Comissão Conta Pacote 100','Imposto Selo Conta Pac
 etq('Lazer e extras','D','Restaurantes e Take-away','Cafeteria/Salão de Chá','Tabaco / E-liquids','Férias (Hotéis/Viagens)','Mensalidade Ginásio','Assinatura Claude','Assinatura ChatGpt','Assinatura Spotify',
   'Aliexpress (Compras Diversas)','Compras P/Internet (Diversos)','Prendas e Convites','Manutenção da Bike (Ribeiros)','Artigos Desporto/Campismo','Parque Campismo','Cabeleireiro (Anabela)');
 etq('Outros','D','Donativos / Apoios','Transferência p/Terceiros (Nelson Filipe)','Transferencia p/Terceiros (Nelson Filipe)');
+etq('Poupança','P','Levantamento para Poupança');
 etq('Não classificado','X','Levantamentos em Cartão (Diversos)','Pagamento Baixo Valor');
 const LIM0 = { hab:33, cred:35, credMax:45, nec:50, des:30, poup:20, poupMin:10, fundo:6, fundoMin:3, nc:10 };
 function etqOf(d2) { const e = (S.listas.etiquetas || {})[d2]; if (e && e.g) return [e.g, e.c || 'N']; return ETQ[d2] || ['Outros', 'X']; }
@@ -371,17 +373,17 @@ function analise(ano, per) {
     if (l.tipo === 'Receita') { rt += v; if (l.d1 === 'Receita Operacional') rb += v; }
     else if (l.tipo === 'Despesa') { des += v; const [g, c] = etqOf(l.d2); G[g] = (G[g] || 0) + v; C[c] = (C[c] || 0) + v; D2[l.d2] = (D2[l.d2] || 0) + v; }
     else if (l.tipo === 'Transferência') { if (l.d2 === ctl) tin += v; if (l.conta === ctl) { tout += v; trDest[l.d2] = (trDest[l.d2] || 0) + v; } } }
-  const saldo = rt + tin - des - tout;
+  const saldo = rt + tin - des - tout, poupado = C.P;
   const meses = per === 'Ano' ? Math.max(1, new Set(S.lancs.filter(l => l.ano === ano).map(l => l.mes)).size) : 1;
   const despMedia = per === 'Ano' ? des / meses : (() => { const used = new Set(S.lancs.filter(l => l.ano === ano && l.tipo === 'Despesa').map(l => l.mes));
       const tot = S.lancs.filter(l => l.ano === ano && l.tipo === 'Despesa').reduce((a, l) => a + (+l.valor || 0), 0); return used.size ? tot / used.size : des; })();
   const q = x => rb > 0 ? x / rb : null;
   const fora = +S.listas.poupancaFora;
   const I = {
-    hab: q(G['Habitação'] || 0), cred: q(G['Crédito e dívidas'] || 0), nec: q(C.N), des: q(C.D), nc: q(C.X), poup: q(saldo),
-    rac: q(des + tout), fundo: (S.listas.poupancaFora === '' || S.listas.poupancaFora == null || !isFinite(fora)) ? null : (despMedia > 0 ? fora / despMedia : null),
+    hab: q(G['Habitação'] || 0), cred: q(G['Crédito e dívidas'] || 0), nec: q(C.N), des: q(C.D), nc: q(C.X), poup: q(saldo + C.P),
+    rac: q(des - C.P + tout), fundo: (S.listas.poupancaFora === '' || S.listas.poupancaFora == null || !isFinite(fora)) ? null : (despMedia > 0 ? fora / despMedia : null),
   };
-  return { L, rb, rt, des, tin, tout, saldo, G, C, D2, trDest, I, Li, despMedia, meses };
+  return { L, rb, rt, des, tin, tout, saldo, poupado, G, C, D2, trDest, I, Li, despMedia, meses };
 }
 function topDe(D2, grupo, n = 2) { return Object.entries(D2).filter(([k]) => !grupo || etqOf(k)[0] === grupo).sort((a, b) => b[1] - a[1]).slice(0, n); }
 function mesesFora(ano, f, ok) { return MESES.filter(m => { const a = analise(ano, m); if (!a.L.length || !(a.rb > 0)) return false; const v = f(a); return v != null && v > ok; }); }
@@ -399,7 +401,7 @@ function avisos(ano, per, A) {
   if (A.I.des != null && A.I.des > Li.des / 100) { const t = topDe(Object.fromEntries(Object.entries(A.D2).filter(([k]) => etqOf(k)[1] === 'D')), null, 3);
     push('y', `Desejos em ${P(A.I.des)} do rendimento (regra: ≤ ${Li.des}%)`, `Onde: ${t.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}.`, t[0] && t[0][0]); }
   if (A.I.poup != null && A.I.poup < Li.poup / 100) { const neg = per === 'Ano' ? MESES.filter(m => { const a = analise(ano, m); return a.L.length && a.saldo < -0.004; }) : [];
-    push(A.I.poup < Li.poupMin / 100 ? 'r' : 'y', `Taxa de poupança ${P(A.I.poup)} (recomendado ≥ ${Li.poup}%)`, A.saldo < 0 ? `Gastou mais ${eur(-A.saldo)} do que recebeu.` + (neg.length ? ` Quando: meses negativos — ${neg.join(', ')}.` : '') : `Sobrou ${eur(A.saldo)}.`, null); }
+    push(A.I.poup < Li.poupMin / 100 ? 'r' : 'y', `Taxa de poupança ${P(A.I.poup)} (recomendado ≥ ${Li.poup}%)`, (A.saldo < 0 ? `Gastou mais ${eur(-A.saldo)} do que recebeu.` + (neg.length ? ` Quando: meses negativos — ${neg.join(', ')}.` : '') : `Sobrou ${eur(A.saldo)}.`) + (A.poupado > 0 ? ` Levantado para poupança: ${eur(A.poupado)}.` : ''), null); }
   if (A.I.nc != null && A.I.nc > Li.nc / 100) { const t = topDe(Object.fromEntries(Object.entries(A.D2).filter(([k]) => etqOf(k)[1] === 'X')), null, 2);
     push('y', `${P(A.I.nc)} do rendimento sem destino conhecido`, `Onde: ${t.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}. Não se sabe se é necessidade ou desejo.`, t[0] && t[0][0]); }
   if (A.I.fundo == null) push('n', 'Fundo de emergência por calcular', 'Escreva a "Poupança fora dos bancos" em Definições.', 'cfg');
@@ -457,12 +459,12 @@ function vSaude() {
   <div class="idx">
     ${card('Esforço com a habitação', I.hab == null ? '—' : pct(I.hab), sem(I.hab, Li.hab / 100, Li.hab / 100 + 0.07), `Padrão: ≤ ${Li.hab}% do rendimento`, topDe(A.D2, 'Habitação').map(t1).join(', '))}
     ${card('Esforço com créditos', I.cred == null ? '—' : pct(I.cred), sem(I.cred, Li.cred / 100, Li.credMax / 100), `Recomendado ≤ ${Li.cred}% · máx. Banco de Portugal ${Li.credMax}%`, topDe(A.D2, 'Crédito e dívidas').map(t1).join(', '))}
-    ${card('Taxa de poupança', I.poup == null ? '—' : pct(I.poup), sem(I.poup, Li.poup / 100, Li.poupMin / 100, false), `Recomendado ≥ ${Li.poup}% (mínimo ${Li.poupMin}%)`, A.saldo < 0 ? `Gastou mais ${eur(-A.saldo)} do que recebeu` : `Sobrou ${eur(A.saldo)}`)}
+    ${card('Taxa de poupança', I.poup == null ? '—' : pct(I.poup), sem(I.poup, Li.poup / 100, Li.poupMin / 100, false), `Recomendado ≥ ${Li.poup}% (mínimo ${Li.poupMin}%)`, (A.poupado > 0 ? `Para poupança ${eur(A.poupado)} · ` : '') + (A.saldo < 0 ? `Gastou mais ${eur(-A.saldo)} do que recebeu` : `Sobrou ${eur(A.saldo)}`))}
     ${card('Regra 50/30/20', I.nec == null ? '—' : `${Math.round(I.nec * 100)} / ${Math.round(I.des * 100)} / ${Math.round(I.poup * 100)}`,
         I.nec == null ? 'n' : pior([sem(I.nec, Li.nec / 100, Li.nec / 100 + 0.1), sem(I.des, Li.des / 100, Li.des / 100 + 0.1), sem(I.poup, Li.poup / 100, Li.poupMin / 100, false)]),
         `Necessidades ${Li.nec}% · Desejos ${Li.des}% · Poupança ${Li.poup}%`, I.nc ? `Sem destino conhecido: ${pct(I.nc)}` : '')}
     ${card('Fundo de emergência', I.fundo == null ? '—' : I.fundo.toLocaleString('pt-PT', { maximumFractionDigits:1 }) + ' meses', sem(I.fundo, Li.fundo, Li.fundoMin, false), `Recomendado ${Li.fundoMin} a ${Li.fundo} meses de despesas`, I.fundo == null ? 'Escreva a poupança fora dos bancos em Definições' : `Despesa média ${eur(A.despMedia)}/mês`)}
-    ${card('Despesa / rendimento', I.rac == null ? '—' : pct(I.rac), sem(I.rac, 0.9, 1), 'Deve ficar abaixo de 100%', `Despesas ${eur(A.des)} + transferências ${eur(A.tout)}`)}
+    ${card('Despesa / rendimento', I.rac == null ? '—' : pct(I.rac), sem(I.rac, 0.9, 1), 'Deve ficar abaixo de 100%', `Despesas ${eur(A.des - A.poupado)} + transferências ${eur(A.tout)}` + (A.poupado > 0 ? ` (sem os ${eur(A.poupado)} para poupança)` : ''))}
   </div>
   <div class="two" style="margin-top:14px">
     <div class="card"><h3>Avisos — o quê, onde, quando</h3>

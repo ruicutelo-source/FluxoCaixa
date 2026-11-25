@@ -3,7 +3,20 @@ Endereço: https://ruicutelo-source.github.io/FluxoCaixa/
 A versão em uso aparece na app em Definições (roda dentada) > Sessão.
 
 ------------------------------------------------------------
-v1.4.0 — 25/11/2026   (sw.js: fluxo-caixa-v5)   << ATUAL
+v1.4.1 — 25/11/2026   (sw.js: fluxo-caixa-v6)   << ATUAL
+------------------------------------------------------------
+- Nova etiqueta "Levantamento para Poupança" (grupo e classe
+  Poupança). O dinheiro levantado para guardar fora dos bancos:
+  * conta na Taxa de poupança e nos 20 da regra 50/30/20;
+  * não conta em Despesa / rendimento;
+  * não entra no Top 10 Gastos;
+  * continua a sair do saldo do Novo Banco (o dinheiro saiu).
+- "Levantamentos em Cartão (Diversos)" e "Pagamento Baixo
+  Valor" continuam Não classificado (gastos em dinheiro).
+Ficheiros alterados: index.html, sw.js
+
+------------------------------------------------------------
+v1.4.0 — 25/11/2026   (sw.js: fluxo-caixa-v5)
 ------------------------------------------------------------
 - Início > "Saúde financeira": índices reconhecidos, com
   semáforo, por ano ou por mês, sobre o rendimento regular
