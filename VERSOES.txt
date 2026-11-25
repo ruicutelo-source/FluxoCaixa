@@ -3,7 +3,32 @@ Endereço: https://ruicutelo-source.github.io/FluxoCaixa/
 A versão em uso aparece na app em Definições (roda dentada) > Sessão.
 
 ------------------------------------------------------------
-v1.3.0 — 25/11/2026   (sw.js: fluxo-caixa-v4)   << ATUAL
+v1.4.0 — 25/11/2026   (sw.js: fluxo-caixa-v5)   << ATUAL
+------------------------------------------------------------
+- Início > "Saúde financeira": índices reconhecidos, com
+  semáforo, por ano ou por mês, sobre o rendimento regular
+  (Receita Operacional):
+  * Esforço com a habitação (padrão <= 33%)
+  * Esforço com créditos (recomendado <= 35%;
+    máximo Banco de Portugal 45%)
+  * Regra 50/30/20 (necessidades / desejos / poupança)
+  * Taxa de poupança (>= 20%, mínimo 10%)
+  * Fundo de emergência (3 a 6 meses de despesas)
+  * Despesa / rendimento (< 100%)
+  * Transferência para os CTT (valor e % do rendimento)
+- Avisos "o quê, onde, quando": índices fora do padrão e
+  a designação que puxa o desvio, meses em que acontece,
+  picos face à média dos 3 meses anteriores, tendências,
+  pagamentos periódicos, ritmo do mês e conta a descoberto.
+- "Para onde vai o rendimento": despesas por grupo.
+- Definições: versão no topo com as novidades; poupança
+  fora dos bancos; limites editáveis; etiquetas (grupo e
+  classe 50/30/20) de cada designação.
+- No PC, a versão aparece também no fundo do menu.
+Ficheiros alterados: index.html, sw.js
+
+------------------------------------------------------------
+v1.3.0 — 25/11/2026   (sw.js: fluxo-caixa-v4)
 ------------------------------------------------------------
 - Definições > "Arrumar designações": junta designações
   repetidas, põe cada uma no sítio certo e corrige erros de

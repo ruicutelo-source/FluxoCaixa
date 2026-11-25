@@ -1,6 +1,6 @@
 // Fluxo de Caixa — service worker
 // Para publicar uma atualização: aumentar o número da VERSAO e voltar a carregar os ficheiros.
-const VERSAO = 'fluxo-caixa-v4';
+const VERSAO = 'fluxo-caixa-v5';
 const PREFIXO = 'fluxo-caixa-';           // só mexe nas caches desta app (Pedidos e Stock têm as suas)
 const LOCAIS = ['./', './index.html', './firebase-config.js', './manifest.json', './icon-192.png', './icon-512.png'];
 const EXTERNOS = [

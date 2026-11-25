@@ -131,6 +131,36 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
 .opt.sel{font-weight:700}
 .optc{font-size:11px;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
 table.arr td:first-child{white-space:normal;word-break:break-word}
+.idx{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:1000px){.idx{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.ix{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 14px;border-top:4px solid var(--line)}
+.ix.g{border-top-color:#2e9d57}.ix.y{border-top-color:#d9a400}.ix.r{border-top-color:#d1372d}.ix.n{border-top-color:var(--line)}
+.ix .h{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.ix .v{font-size:22px;font-weight:800;margin:2px 0;font-variant-numeric:tabular-nums}
+.ix .lim{font-size:12px;color:var(--muted)}
+.ix .why{font-size:12px;margin-top:4px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:0 0 auto}
+.dot.g{background:#2e9d57}.dot.y{background:#d9a400}.dot.r{background:#d1372d}.dot.n{background:#bbb}
+.alert{display:flex;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.alert:last-child{border-bottom:0}
+.alert .ic{font-size:18px;line-height:1.2}
+.alert .tt{font-weight:600}
+.alert .dd{font-size:13px;color:var(--muted)}
+.alert.click{cursor:pointer}.alert.click:hover{background:var(--bg)}
+.gbar{display:grid;grid-template-columns:minmax(90px,170px) 1fr auto;gap:8px;align-items:center;padding:5px 0;font-size:13px}
+.gbar .tr{height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.gbar .fi{height:100%;border-radius:5px}
+.per{display:flex;gap:8px;align-items:center;margin:18px 0 10px}
+.per h2{margin:0;flex:1}
+.verbox{border-left:4px solid var(--brand)}
+.verbox .vv{font-size:20px;font-weight:800;color:var(--brand)}
+.verbox ul{margin:8px 0 0;padding-left:18px;font-size:13px}
+.navver{display:none}
+@media (min-width:900px){.navver{display:block;margin-top:auto;padding:10px 14px;font-size:12px;color:var(--muted)}}
+.etq{display:grid;grid-template-columns:1fr;gap:4px;padding:8px 0;border-bottom:1px solid var(--line)}
+@media (min-width:700px){.etq{grid-template-columns:1fr 170px 150px;align-items:center}}
+.etq select{padding:6px 8px;min-height:34px;font-size:13px}
+.etq .nm{font-size:14px}
 table.arr td:first-child .small{margin-top:2px}
 .d2ok{font-size:11px;color:var(--rec);min-height:14px}
 .mov{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
@@ -176,6 +206,7 @@ table.arr td:first-child .small{margin-top:2px}
     <button data-v="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Top 10</button>
     <button data-v="bancos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></svg>Bancos</button>
     <button data-v="analise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Análise</button>
+    <div class="navver" id="navver"></div>
   </nav>
   <main id="main"></main>
   <button class="fab hidden" id="fab" aria-label="Novo lançamento">+</button>
@@ -191,7 +222,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
          onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
@@ -295,6 +326,156 @@ function calc(ano) {
   return { m, T, top:rank(desD2), topM:desD2m.map(rank), contas, saldoIni };
 }
 
+/* ---------------- análise financeira (v1.4.0) ---------------- */
+const APP_DATA = '25/11/2026';
+const NOVIDADES = [
+  'Início: análise financeira com índices reconhecidos (habitação 33%, créditos 35%/45%, 50/30/20, poupança, fundo de emergência).',
+  'Avisos: o quê, onde e quando — picos, tendências, ritmo do mês, conta a descoberto.',
+  'Definições: limites editáveis, poupança fora dos bancos e etiquetas de cada designação.',
+  'A versão passa a estar à vista no topo das Definições.'
+];
+const GRUPOS = ['Habitação','Crédito e dívidas','Alimentação','Casa e consumos','Casa (manutenção)','Saúde','Transportes','Pessoal e família','Impostos e taxas','Custos bancários','Lazer e extras','Outros','Não classificado'];
+const CLASSES = { N:'Necessidade', D:'Desejo', P:'Poupança', X:'Não classificado' };
+const GCOR = { 'Habitação':'#8a3a22','Crédito e dívidas':'#b3261e','Alimentação':'#2e9d57','Casa e consumos':'#2f5d8a','Casa (manutenção)':'#5b7fa8','Saúde':'#7b4bb7',
+  'Transportes':'#d9822b','Pessoal e família':'#c2558f','Impostos e taxas':'#6d6d6d','Custos bancários':'#9a9a9a','Lazer e extras':'#d9a400','Outros':'#a07b5a','Não classificado':'#444' };
+const ETQ = {}; // etiqueta padrão: designação → [grupo, classe]
+const etq = (g, c, ...ns) => ns.forEach(n => ETQ[n] = [g, c]);
+etq('Habitação','N','Condomínio','IMI (Imposto Municipal sobre Imóveis)','IMI (Mensalizado)','IMI (Imposto Municipal Imóveis)','Seguro Multirriscos (Habitação)','Seguro Multiriscos (Habitação)','Empréstimo / Renda da Casa');
+etq('Crédito e dívidas','N','Instituto Gestão Financeira SS (Plano Prestacional)','Instituto Gestão Finançeira SS (Plano Prestacional )','Prestação de Crédito Pessoal','Juros Devedores (Novo Banco)','Pagamento Juros (Conta Novo Banco)','Pagamento Juros da Conta (000073840863)','Imposto de Selo s/ Juros','Imposto de Selo (Juros)','Imposto de Selo (S/Juros)');
+etq('Alimentação','N','Supermercado / Mercearia','Talho / Peixaria','Frutaria / Feira','Pão / Pastelaria');
+etq('Casa e consumos','N','Eletricidade (Meo Energia)','Serviço Águas Valongo','Gás (Botija ou Canalizado)','Detergentes e Limpeza Casa','Meo (TV / Internet / Telefone)','Assinaturas (Serviço Meo TV/Internet)','Internet / TV / Telefone','Plano de Telemóvel');
+etq('Casa (manutenção)','N','Avaria de Eletrodomésticos','Reparações Urgentes (Cano/Telhado)','Ferragens (Bricolage)');
+etq('Casa (manutenção)','D','Obras de Melhoria na Casa','Mobiliário e Decoração','Ferramentas Elétricas');
+etq('Saúde','N','Farmácia e Medicamentos','Consultas Médicas Especialidade','Exames Médicos Extra','Plano de Saúde (Planicare)');
+etq('Transportes','N','Combustível (Gasóleo/Gasolina)','Seguro Automóvel (Carrinha,Mota e Fiat)','Manutenção Auto (Revisão)','Portagens / SCUTs','Transportes Públicos / TVDE','IUC (Imposto Único Circulação)','Estacionamento (Parques)','Mensalidade Estacionamento','Seguro Ocupantes Veículos (Cátia)','Seguro Vida (Sobre os Veiculos (Cátia))');
+etq('Transportes','D','Lavagem Viaturas','Acessórios Auto (Norauto)');
+etq('Pessoal e família','N','Higiene e Cosmética','Barbeiro (Rui)','Roupa e Calçado','Lavandaria / Engomadoria','Escolas / Mensalidades Cursos','Quotas / Ordens Profissionais','Ração e Planos de Saúde Pet','Urgências Veterinárias');
+etq('Impostos e taxas','N','Pagamentos ao Estado','Renovação de Documentos','Multas (Trânsito/Fiscais)','Custos com Advogados / Notário');
+etq('Custos bancários','N','Comissão Conta Pacote 100','Imposto Selo Conta Pacote 100','Conta Pacote 100','Manutenção da Conta Pacote 100','Imposto Selo Manutenção da Conta Pacote 100',
+  'Comissão Proc. Transação Internacional','Imposto de Selo Transação Internacional','Comissão Transferência p/Terceiros (Nelson Filipe)','Imposto Selo Transferência p/Terceiros (Nelson Filipe)',
+  'Comissão Transferencia p/Terceiros (Nelson Filipe)','Imposto Selo Transferencia p/Terceiros (Nelson Filipe)');
+etq('Lazer e extras','D','Restaurantes e Take-away','Cafeteria/Salão de Chá','Tabaco / E-liquids','Férias (Hotéis/Viagens)','Mensalidade Ginásio','Assinatura Claude','Assinatura ChatGpt','Assinatura Spotify',
+  'Aliexpress (Compras Diversas)','Compras P/Internet (Diversos)','Prendas e Convites','Manutenção da Bike (Ribeiros)','Artigos Desporto/Campismo','Parque Campismo','Cabeleireiro (Anabela)');
+etq('Outros','D','Donativos / Apoios','Transferência p/Terceiros (Nelson Filipe)','Transferencia p/Terceiros (Nelson Filipe)');
+etq('Não classificado','X','Levantamentos em Cartão (Diversos)','Pagamento Baixo Valor');
+const LIM0 = { hab:33, cred:35, credMax:45, nec:50, des:30, poup:20, poupMin:10, fundo:6, fundoMin:3, nc:10 };
+function etqOf(d2) { const e = (S.listas.etiquetas || {})[d2]; if (e && e.g) return [e.g, e.c || 'N']; return ETQ[d2] || ['Outros', 'X']; }
+function lim() { return { ...LIM0, ...(S.listas.limites || {}) }; }
+const sem = (v, ok, warn, higherIsBad = true) => v == null || !isFinite(v) ? 'n' : higherIsBad ? (v <= ok ? 'g' : v <= warn ? 'y' : 'r') : (v >= ok ? 'g' : v >= warn ? 'y' : 'r');
+const pior = arr => arr.includes('r') ? 'r' : arr.includes('y') ? 'y' : arr.includes('g') ? 'g' : 'n';
+function periodoLancs(ano, per) { return S.lancs.filter(l => l.ano === ano && (per === 'Ano' || l.mes === per)); }
+function analise(ano, per) {
+  const ctl = S.listas.contaControlada, L = periodoLancs(ano, per), Li = lim();
+  let rb = 0, rt = 0, des = 0, tin = 0, tout = 0; const G = {}, C = { N:0, D:0, P:0, X:0 }, D2 = {}, trDest = {};
+  for (const l of L) { const v = +l.valor || 0;
+    if (l.tipo === 'Receita') { rt += v; if (l.d1 === 'Receita Operacional') rb += v; }
+    else if (l.tipo === 'Despesa') { des += v; const [g, c] = etqOf(l.d2); G[g] = (G[g] || 0) + v; C[c] = (C[c] || 0) + v; D2[l.d2] = (D2[l.d2] || 0) + v; }
+    else if (l.tipo === 'Transferência') { if (l.d2 === ctl) tin += v; if (l.conta === ctl) { tout += v; trDest[l.d2] = (trDest[l.d2] || 0) + v; } } }
+  const saldo = rt + tin - des - tout;
+  const meses = per === 'Ano' ? Math.max(1, new Set(S.lancs.filter(l => l.ano === ano).map(l => l.mes)).size) : 1;
+  const despMedia = per === 'Ano' ? des / meses : (() => { const used = new Set(S.lancs.filter(l => l.ano === ano && l.tipo === 'Despesa').map(l => l.mes));
+      const tot = S.lancs.filter(l => l.ano === ano && l.tipo === 'Despesa').reduce((a, l) => a + (+l.valor || 0), 0); return used.size ? tot / used.size : des; })();
+  const q = x => rb > 0 ? x / rb : null;
+  const fora = +S.listas.poupancaFora;
+  const I = {
+    hab: q(G['Habitação'] || 0), cred: q(G['Crédito e dívidas'] || 0), nec: q(C.N), des: q(C.D), nc: q(C.X), poup: q(saldo),
+    rac: q(des + tout), fundo: (S.listas.poupancaFora === '' || S.listas.poupancaFora == null || !isFinite(fora)) ? null : (despMedia > 0 ? fora / despMedia : null),
+  };
+  return { L, rb, rt, des, tin, tout, saldo, G, C, D2, trDest, I, Li, despMedia, meses };
+}
+function topDe(D2, grupo, n = 2) { return Object.entries(D2).filter(([k]) => !grupo || etqOf(k)[0] === grupo).sort((a, b) => b[1] - a[1]).slice(0, n); }
+function mesesFora(ano, f, ok) { return MESES.filter(m => { const a = analise(ano, m); if (!a.L.length || !(a.rb > 0)) return false; const v = f(a); return v != null && v > ok; }); }
+function avisos(ano, per, A) {
+  const out = [], Li = A.Li, P = x => pct(x), ctl = S.listas.contaControlada;
+  const push = (nivel, t, d, go) => out.push({ nivel, t, d, go });
+  if (!(A.rb > 0)) push('y', 'Sem rendimento regular neste período', 'Os índices são calculados sobre a Receita Operacional (pensões). Neste período ainda não há.', null);
+  // índices
+  if (A.I.hab != null && A.I.hab > Li.hab / 100) { const t = topDe(A.D2, 'Habitação');
+    push('r', `Habitação acima de ${Li.hab}% do rendimento (${P(A.I.hab)})`, `Onde: ${t.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}.` + (per === 'Ano' ? ` Quando: ${mesesFora(ano, a => a.I.hab, Li.hab / 100).join(', ') || '—'}.` : ''), t[0] && t[0][0]); }
+  if (A.I.cred != null && A.I.cred > Li.cred / 100) { const t = topDe(A.D2, 'Crédito e dívidas');
+    push(A.I.cred > Li.credMax / 100 ? 'r' : 'y', `Esforço com créditos ${P(A.I.cred)} (recomendado ≤ ${Li.cred}%, máx. BdP ${Li.credMax}%)`, `Onde: ${t.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}.`, t[0] && t[0][0]); }
+  if (A.I.nec != null && A.I.nec > Li.nec / 100) { const g = Object.entries(A.G).filter(([k]) => GRUPOS.includes(k)).sort((a, b) => b[1] - a[1]).filter(([k]) => k !== 'Lazer e extras' && k !== 'Não classificado').slice(0, 3);
+    push('y', `Necessidades em ${P(A.I.nec)} do rendimento (regra: ≤ ${Li.nec}%)`, `Onde mais pesa: ${g.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}.`, null); }
+  if (A.I.des != null && A.I.des > Li.des / 100) { const t = topDe(Object.fromEntries(Object.entries(A.D2).filter(([k]) => etqOf(k)[1] === 'D')), null, 3);
+    push('y', `Desejos em ${P(A.I.des)} do rendimento (regra: ≤ ${Li.des}%)`, `Onde: ${t.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}.`, t[0] && t[0][0]); }
+  if (A.I.poup != null && A.I.poup < Li.poup / 100) { const neg = per === 'Ano' ? MESES.filter(m => { const a = analise(ano, m); return a.L.length && a.saldo < -0.004; }) : [];
+    push(A.I.poup < Li.poupMin / 100 ? 'r' : 'y', `Taxa de poupança ${P(A.I.poup)} (recomendado ≥ ${Li.poup}%)`, A.saldo < 0 ? `Gastou mais ${eur(-A.saldo)} do que recebeu.` + (neg.length ? ` Quando: meses negativos — ${neg.join(', ')}.` : '') : `Sobrou ${eur(A.saldo)}.`, null); }
+  if (A.I.nc != null && A.I.nc > Li.nc / 100) { const t = topDe(Object.fromEntries(Object.entries(A.D2).filter(([k]) => etqOf(k)[1] === 'X')), null, 2);
+    push('y', `${P(A.I.nc)} do rendimento sem destino conhecido`, `Onde: ${t.map(([k, v]) => `${k} ${eur(v)}`).join(', ')}. Não se sabe se é necessidade ou desejo.`, t[0] && t[0][0]); }
+  if (A.I.fundo == null) push('n', 'Fundo de emergência por calcular', 'Escreva a "Poupança fora dos bancos" em Definições.', 'cfg');
+  else if (A.I.fundo < Li.fundo) push(A.I.fundo < Li.fundoMin ? 'r' : 'y', `Fundo de emergência cobre ${A.I.fundo.toLocaleString('pt-PT', { maximumFractionDigits:1 })} meses (recomendado ≥ ${Li.fundo})`, `Despesa média: ${eur(A.despMedia)} por mês.`, null);
+  // descoberto
+  const mv = movimentos(ctl, ano).filter(m => per === 'Ano' || m.l.mes === per); const neg = mv.filter(m => m.saldo < -0.004);
+  if (neg.length) { const pior = neg.reduce((a, b) => b.saldo < a.saldo ? b : a); const ms = [...new Set(neg.map(m => m.l.mes))];
+    push('r', `${ctl} a descoberto`, `Quando: ${ms.join(', ')}. Pior momento: ${eur(pior.saldo)} em ${dPT(pior.data)}. É isto que gera juros devedores. (Calculado pelas datas dos lançamentos — veja o extrato em Bancos.)`, null); }
+  // picos, tendências e ritmo (mês de referência)
+  const usados = MESES.filter(m => S.lancs.some(l => l.ano === ano && l.mes === m && l.tipo === 'Despesa'));
+  const ref = per === 'Ano' ? usados[usados.length - 1] : per; const ri = MESES.indexOf(ref);
+  if (ref) {
+    const porMes = d2 => MESES.map(m => S.lancs.filter(l => l.ano === ano && l.mes === m && l.tipo === 'Despesa' && l.d2 === d2).reduce((a, l) => a + (+l.valor || 0), 0));
+    const nomes = [...new Set(S.lancs.filter(l => l.ano === ano && l.tipo === 'Despesa').map(l => l.d2))];
+    const ant = usados.filter(m => MESES.indexOf(m) < ri); const picos = [], periodicos = [];
+    for (const d2 of nomes) { const pm = porMes(d2), cur = pm[ri]; if (cur < 15) continue;
+      const prev3 = ant.slice(-3).map(m => pm[MESES.indexOf(m)]), prevAll = ant.map(m => pm[MESES.indexOf(m)]);
+      if (prev3.length < 2) continue;
+      const m3 = prev3.reduce((a, b) => a + b, 0) / prev3.length, m12 = prevAll.reduce((a, b) => a + b, 0) / prevAll.length;
+      const vezes = pm.filter(v => v > 0).length;
+      const periodico = vezes <= Math.max(2, Math.floor(usados.length / 2.5));
+      if (cur > m3 * 1.3 && cur - m3 >= 15) {
+        if (periodico) periodicos.push(d2);
+        else picos.push({ d2, cur, m3, dif:cur - m3 }); }
+      const ult3 = [...ant.slice(-2), ref].map(m => pm[MESES.indexOf(m)]); const base = ant.slice(0, -2).map(m => pm[MESES.indexOf(m)]);
+      if (!periodico && base.length >= 3 && ult3.every(v => v > 0)) { const mb = base.reduce((a, b) => a + b, 0) / base.length, mu = ult3.reduce((a, b) => a + b, 0) / 3;
+        if (mb > 0 && mu > mb * 1.2 && mu - mb >= 15) push('y', `${d2}: tendência a subir`, `Média dos últimos 3 meses ${eur(mu)} contra ${eur(mb)} antes (+${pct(mu / mb - 1)}). Repete-se — não é um pico.`, d2); }
+    }
+    picos.sort((a, b) => b.dif - a.dif).slice(0, 5).forEach(x => push('y', `${x.d2}: ${eur(x.cur)} em ${ref}`, `+${eur(x.dif)} (+${pct(x.m3 > 0 ? x.cur / x.m3 - 1 : 1)}) face à média dos 3 meses anteriores (${eur(x.m3)}). Pico deste mês.`, x.d2));
+    if (picos.length > 5) push('n', `Mais ${picos.length - 5} designação(ões) acima do habitual em ${ref}`, 'Desvios mais pequenos — veja o Top 10 do mês.', null);
+    if (periodicos.length) push('n', `Pagamentos periódicos em ${ref}`, `${periodicos.join(', ')} — não se pagam todos os meses (trimestral/anual). Não é tendência.`, null);
+    // ritmo do mês em curso
+    const c0 = cycleOf(todayISO());
+    if (c0.ano === ano && c0.mes === ref && ant.length) {
+      const [y, mo, d] = todayISO().split('-').map(Number); const ini = d >= 17 ? new Date(y, mo - 1, 17) : new Date(y, mo - 2, 17); const fim = new Date(ini.getFullYear(), ini.getMonth() + 1, 16);
+      const frac = Math.min(1, (new Date(y, mo - 1, d) - ini) / (fim - ini) + 1 / 30);
+      const varMes = m => S.lancs.filter(l => l.ano === ano && l.mes === m && l.tipo === 'Despesa' && l.d1 === 'Despesa Variável').reduce((a, l) => a + (+l.valor || 0), 0);
+      const media = ant.slice(-3).reduce((a, m) => a + varMes(m), 0) / Math.min(3, ant.length), ja = varMes(ref);
+      if (media > 0 && ja / media > frac + 0.2) push('y', `Ritmo do mês: já gastou ${pct(ja / media)} do habitual em despesas variáveis`, `Vai em ${pct(frac)} do mês (${eur(ja)} de ${eur(media)} de média).`, null);
+    }
+  }
+  const ord = { r:0, y:1, n:2, g:3 }; return out.sort((a, b) => ord[a.nivel] - ord[b.nivel]);
+}
+function vSaude() {
+  if (!S.iPer) S.iPer = 'Ano';
+  const A = analise(S.ano, S.iPer), Li = A.Li, I = A.I;
+  const card = (t, v, cl, limTxt, why) => `<div class="ix ${cl}"><div class="h"><span class="dot ${cl}"></span>${t}</div><div class="v">${v}</div><div class="lim">${limTxt}</div>${why ? `<div class="why">${why}</div>` : ''}</div>`;
+  const t1 = ([k, v]) => `${esc(k)} ${eur(v)}`;
+  const trTxt = Object.entries(A.trDest).map(([k, v]) => `Transferência para os ${esc(k.replace(/^Banco\s+/i, ''))}: <b>${eur(v)}</b>${A.rb > 0 ? ` (${pct(v / A.rb)} do rendimento)` : ''}`).join(' · ');
+  const av = avisos(S.ano, S.iPer, A);
+  const gs = Object.entries(A.G).sort((a, b) => b[1] - a[1]); const gmax = gs.length ? gs[0][1] : 1;
+  return `<div class="per"><h2>Saúde financeira</h2>
+    <select class="inp" id="iPer" style="width:auto">${['Ano', ...MESES].map(m => `<option value="${m}" ${m === S.iPer ? 'selected' : ''}>${m === 'Ano' ? 'Ano ' + S.ano : m + ' ' + S.ano}</option>`).join('')}</select></div>
+  <div class="small muted" style="margin:-4px 0 10px">Base: rendimento regular (Receita Operacional) ${eur(A.rb)}${trTxt ? ' · ' + trTxt : ''}</div>
+  <div class="idx">
+    ${card('Esforço com a habitação', I.hab == null ? '—' : pct(I.hab), sem(I.hab, Li.hab / 100, Li.hab / 100 + 0.07), `Padrão: ≤ ${Li.hab}% do rendimento`, topDe(A.D2, 'Habitação').map(t1).join(', '))}
+    ${card('Esforço com créditos', I.cred == null ? '—' : pct(I.cred), sem(I.cred, Li.cred / 100, Li.credMax / 100), `Recomendado ≤ ${Li.cred}% · máx. Banco de Portugal ${Li.credMax}%`, topDe(A.D2, 'Crédito e dívidas').map(t1).join(', '))}
+    ${card('Taxa de poupança', I.poup == null ? '—' : pct(I.poup), sem(I.poup, Li.poup / 100, Li.poupMin / 100, false), `Recomendado ≥ ${Li.poup}% (mínimo ${Li.poupMin}%)`, A.saldo < 0 ? `Gastou mais ${eur(-A.saldo)} do que recebeu` : `Sobrou ${eur(A.saldo)}`)}
+    ${card('Regra 50/30/20', I.nec == null ? '—' : `${Math.round(I.nec * 100)} / ${Math.round(I.des * 100)} / ${Math.round(I.poup * 100)}`,
+        I.nec == null ? 'n' : pior([sem(I.nec, Li.nec / 100, Li.nec / 100 + 0.1), sem(I.des, Li.des / 100, Li.des / 100 + 0.1), sem(I.poup, Li.poup / 100, Li.poupMin / 100, false)]),
+        `Necessidades ${Li.nec}% · Desejos ${Li.des}% · Poupança ${Li.poup}%`, I.nc ? `Sem destino conhecido: ${pct(I.nc)}` : '')}
+    ${card('Fundo de emergência', I.fundo == null ? '—' : I.fundo.toLocaleString('pt-PT', { maximumFractionDigits:1 }) + ' meses', sem(I.fundo, Li.fundo, Li.fundoMin, false), `Recomendado ${Li.fundoMin} a ${Li.fundo} meses de despesas`, I.fundo == null ? 'Escreva a poupança fora dos bancos em Definições' : `Despesa média ${eur(A.despMedia)}/mês`)}
+    ${card('Despesa / rendimento', I.rac == null ? '—' : pct(I.rac), sem(I.rac, 0.9, 1), 'Deve ficar abaixo de 100%', `Despesas ${eur(A.des)} + transferências ${eur(A.tout)}`)}
+  </div>
+  <div class="two" style="margin-top:14px">
+    <div class="card"><h3>Avisos — o quê, onde, quando</h3>
+      ${av.length ? av.map(a => `<div class="alert ${a.go ? 'click' : ''}" ${a.go ? `data-alert="${esc(a.go)}"` : ''}><div class="ic">${{ r:'🔴', y:'🟡', n:'ℹ️', g:'🟢' }[a.nivel]}</div><div><div class="tt">${esc(a.t)}</div><div class="dd">${esc(a.d)}</div></div></div>`).join('')
+        : '<div class="alert"><div class="ic">🟢</div><div><div class="tt">Tudo dentro dos padrões</div><div class="dd">Nenhum índice fora do recomendado neste período.</div></div></div>'}
+    </div>
+    <div class="card"><h3>Para onde vai o rendimento</h3>
+      ${gs.length ? gs.map(([g, v]) => `<div class="gbar"><div>${esc(g)}</div><div class="tr"><div class="fi" style="width:${Math.max(2, v / gmax * 100)}%;background:${GCOR[g] || '#888'}"></div></div><div><b>${eur(v)}</b>${A.rb > 0 ? ` <span class="muted">${pct(v / A.rb)}</span>` : ''}</div></div>`).join('') : '<div class="empty">Sem despesas.</div>'}
+      <div class="small muted" style="margin-top:6px">Percentagens sobre o rendimento regular. As etiquetas de cada designação podem ser mudadas em Definições.</div>
+    </div>
+  </div>`;
+}
+
 /* ---------------- render ---------------- */
 function render() {
   if (!S.user) return;
@@ -302,6 +483,7 @@ function render() {
   if (!S.ano || !ys.includes(S.ano)) S.ano = ys.includes(lastDataYear()) ? lastDataYear() : ys[ys.length - 1];
   $('#yearSel').innerHTML = ys.map(y => `<option ${y === S.ano ? 'selected' : ''}>${y}</option>`).join('');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
+  $('#navver').textContent = `Fluxo de Caixa v${APP_VERSION}`;
   $('#fab').classList.toggle('hidden', !['inicio','lanc','bancos'].includes(S.view));
   const main = $('#main');
   if (!S.loadedL || !S.loadedC) { main.innerHTML = '<div class="empty">A carregar…</div>'; return; }
@@ -326,14 +508,15 @@ function vInicio() {
     <div class="kpi"><div class="l">Total receitas</div><div class="v pos">${eur(T.ent)}</div></div>
     <div class="kpi"><div class="l">Total despesas</div><div class="v neg">${eur(T.sai)}</div></div>
     <div class="kpi"><div class="l">Saldo líquido</div><div class="v ${cls(T.saldo)}">${eur(T.saldo)}</div></div>
-    <div class="kpi"><div class="l">Taxa de poupança</div><div class="v ${cls(tp)}">${pct(tp)}</div></div>
+    <div class="kpi"><div class="l">Saldo / total receitas</div><div class="v ${cls(tp)}">${pct(tp)}</div></div>
   </div>
   <div class="card" style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <div style="flex:1"><div class="muted small">Saldo real em ${esc(ctl)} (saldo inicial + movimentos)</div>
     <div style="font-size:26px;font-weight:800" class="${cls(T.saldoReal)}">${eur(T.saldoReal)}</div></div>
     <div class="small muted">Inclui transferências: ${eur(T.tr)}</div>
   </div>
-  <div class="two">
+  ${vSaude()}
+  <div class="two" style="margin-top:14px">
     <div class="card scroll"><h3>Resumo mensal</h3>
       <table><tr><th>Mês</th><th>Receitas</th><th>Despesas</th><th>Saldo</th><th>Acumulado</th><th>Poup.</th></tr>
       ${m.map((x, i) => `<tr class="click" data-mes="${MESES[i]}"><td>${MESES[i]}</td><td>${eur(x.ent)}</td><td>${eur(x.sai)}</td>
@@ -494,7 +677,13 @@ function vCfg() {
     ['despesaVariavel','Despesa Variável'], ['despesaNaoOperacional','Despesa Não Operacional'], ['contas','Contas bancárias']];
   const sel = S.cfgList || 'despesaVariavel';
   const items = L[sel] || [];
-  return `<h2>Definições</h2><div class="two"><div>
+  const Li = lim();
+  const etList = S.etqList || 'despesaVariavel';
+  const etItems = [...new Set([...(L[etList] || []), ...S.lancs.filter(l => l.tipo === 'Despesa' && LKEY[l.d1] === etList).map(l => l.d2)])];
+  return `<h2>Definições</h2>
+  <div class="card verbox"><div class="small muted">Versão instalada</div><div class="vv">Versão ${APP_VERSION} · ${APP_DATA}</div>
+    <div class="small" style="margin-top:6px"><b>Novidades desta versão</b></div><ul>${NOVIDADES.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>
+  <div class="two"><div>
   <div class="card"><h3>Importar / exportar</h3>
     <p class="small muted">Importar lê o ficheiro Excel (meses Jan–Dez, listas Cad1/Cad2/Cad3 e saldos iniciais do BAN) e <b>substitui</b> os lançamentos desse ano.</p>
     <div class="btns"><label class="btn p">Importar ficheiro Excel<input type="file" id="impFile" accept=".xlsx,.xlsm" hidden></label>
@@ -505,6 +694,15 @@ function vCfg() {
     <div style="margin-top:10px">${L.contas.map(c => `<label class="fl" style="margin-bottom:8px">Saldo inicial — ${esc(c)}
       <input class="inp si" data-c="${esc(c)}" inputmode="decimal" value="${(L.saldosIniciais || {})[c] != null ? String(L.saldosIniciais[c]).replace('.', ',') : ''}"></label>`).join('')}</div>
     <button class="btn p" id="btnSaveSI">Guardar</button></div>
+  <div class="card"><h3>Análise financeira</h3>
+    <label class="fl">Poupança fora dos bancos (€) — usada no fundo de emergência
+      <input class="inp" id="pFora" inputmode="decimal" value="${L.poupancaFora != null && L.poupancaFora !== '' ? String(L.poupancaFora).replace('.', ',') : ''}" placeholder="ex.: 5000"></label>
+    <div class="small muted" style="margin:10px 0 6px">Limites (podem ser ajustados):</div>
+    <div class="f2">
+      ${[['hab','Habitação ≤ %'],['cred','Créditos recomendado ≤ %'],['credMax','Créditos máximo (BdP) %'],['nec','Necessidades ≤ %'],['des','Desejos ≤ %'],['poup','Poupança ≥ %'],['poupMin','Poupança mínima %'],['fundo','Fundo emergência (meses)'],['fundoMin','Fundo mínimo (meses)'],['nc','Sem destino conhecido ≤ %']]
+        .map(([k, t]) => `<label class="fl">${t}<input class="inp lim" data-k="${k}" inputmode="decimal" value="${Li[k]}"></label>`).join('')}
+    </div>
+    <div class="btns"><button class="btn p" id="btnLim">Guardar</button><button class="btn" id="btnLim0">Repor padrões</button></div></div>
   <div class="card"><h3>Arrumar designações</h3>
     ${S.listas.arrumacao1 ? `<p class="small">✅ Já aplicada em ${esc(S.listas.arrumacao1)}. Se lançar com um nome antigo, pode voltar a correr (só muda o que estiver fora do sítio).</p>` :
       `<p class="small muted">Junta designações repetidas, põe cada uma no sítio certo e corrige erros de escrita. <b>Os valores não mudam.</b></p>`}
@@ -516,7 +714,15 @@ function vCfg() {
     <select class="inp" id="cfgList">${lists.map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${n} (${(L[k] || []).length})</option>`).join('')}</select>
     <div style="display:flex;gap:8px;margin:10px 0"><input class="inp" id="newItem" placeholder="Nova descrição"><button class="btn p" id="btnAdd">Adicionar</button></div>
     ${items.map((it, i) => `<div class="listed"><span>${esc(it)}</span><button class="iconbtn" data-del="${i}" aria-label="Retirar" title="Retirar">✕</button></div>`).join('') || '<div class="empty">Lista vazia.</div>'}
-    <p class="small muted">Retirar uma descrição não apaga os lançamentos antigos que a usam.</p></div></div>`;
+    <p class="small muted">Retirar uma descrição não apaga os lançamentos antigos que a usam.</p></div></div>
+  <div class="card"><h3>Etiquetas das designações (para a análise)</h3>
+    <p class="small muted">Cada despesa tem um <b>grupo</b> (para os índices de habitação e créditos) e uma <b>classe</b> da regra 50/30/20. Já vêm preenchidas — mude só se não concordar.</p>
+    <select class="inp" id="etqList" style="max-width:320px">${[['despesaFixa','Despesa Fixa'],['despesaVariavel','Despesa Variável'],['despesaNaoOperacional','Despesa Não Operacional']].map(([k, n]) => `<option value="${k}" ${k === etList ? 'selected' : ''}>${n}</option>`).join('')}</select>
+    ${etItems.map(d => { const [g, c] = etqOf(d); const own = !!(L.etiquetas || {})[d];
+      return `<div class="etq"><div class="nm">${esc(d)}${own ? ' <span class="badge b-warn">alterada</span>' : ''}</div>
+        <select class="inp etg" data-d="${esc(d)}">${GRUPOS.map(x => `<option ${x === g ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <select class="inp etc" data-d="${esc(d)}">${Object.entries(CLASSES).map(([k, n]) => `<option value="${k}" ${k === c ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`; }).join('')}
+  </div>`;
 }
 
 /* ---------------- events ---------------- */
@@ -533,6 +739,10 @@ function bindMain() {
   M.querySelectorAll('.item[data-id]').forEach(r => r.onclick = () => openForm(S.lancs.find(l => l.id === r.dataset.id)));
   const q = $('#q'); if (q) q.oninput = e => { S.q = e.target.value; const pos = e.target.selectionStart; render(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
   const tm = $('#topMes'); if (tm) tm.onchange = e => { S.topMes = e.target.value; render(); };
+  const ip = $('#iPer'); if (ip) ip.onchange = e => { S.iPer = e.target.value; render(); };
+  M.querySelectorAll('[data-alert]').forEach(a => a.onclick = () => { const g = a.dataset.alert; if (g === 'cfg') return go('cfg');
+    const l = S.lancs.filter(x => x.ano === S.ano && x.d2 === g).sort((x, y) => (y.data || '').localeCompare(x.data || ''))[0];
+    S.mes = l ? l.mes : S.mes; S.q = g; go('lanc'); });
   const bb = $('#bBanco'); if (bb) bb.onchange = e => { S.banco = e.target.value; render(); };
   const bm = $('#bMes'); if (bm) bm.onchange = e => { S.bMes = e.target.value; render(); };
   M.querySelectorAll('.mov[data-id]').forEach(r => r.onclick = () => openForm(S.lancs.find(l => l.id === r.dataset.id)));
@@ -554,6 +764,18 @@ function bindCfg() {
   $('#impFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importXlsx(f); };
   $('#btnExp').onclick = exportXlsx;
   $('#btnArr').onclick = verArrumacao;
+  $('#btnLim').onclick = async () => { const li = {}; let bad = false;
+    document.querySelectorAll('.lim').forEach(i => { const n = parseNum(i.value); if (isNaN(n) || n < 0) bad = true; else li[i.dataset.k] = n; });
+    const pf = $('#pFora').value.trim(); const pfn = pf === '' ? '' : parseNum(pf);
+    if (bad || (pf !== '' && isNaN(pfn))) return toast('Há um valor inválido.');
+    await saveListas({ limites:li, poupancaFora:pfn }); toast('Guardado.'); };
+  $('#btnLim0').onclick = async () => { if (await ask('Repor os limites padrão?', 'Repor', false)) { await saveListas({ limites:{} }); toast('Limites repostos.'); } };
+  $('#etqList').onchange = e => { S.etqList = e.target.value; render(); };
+  const saveEtq = async d => { const g = document.querySelector(`.etg[data-d="${CSS.escape(d)}"]`).value, c = document.querySelector(`.etc[data-d="${CSS.escape(d)}"]`).value;
+    const et = { ...(S.listas.etiquetas || {}) }; const def = ETQ[d];
+    if (def && def[0] === g && def[1] === c) delete et[d]; else et[d] = { g, c };
+    await saveListas({ etiquetas:et }); toast('Etiqueta guardada.'); };
+  document.querySelectorAll('.etg,.etc').forEach(s => s.onchange = () => saveEtq(s.dataset.d));
 }
 async function saveListas(patch) { await setDoc(doc(db, 'config', 'listas'), { ...S.listas, ...patch }); }
 
