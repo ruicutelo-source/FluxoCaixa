@@ -3,7 +3,26 @@ Endereço: https://ruicutelo-source.github.io/FluxoCaixa/
 A versão em uso aparece na app em Definições (roda dentada) > Sessão.
 
 ------------------------------------------------------------
-v1.4.2 — 25/11/2026   (sw.js: fluxo-caixa-v6)   << ATUAL
+v1.5.0 — 25/11/2026   (sw.js: fluxo-caixa-v7)   << ATUAL
+------------------------------------------------------------
+- Definições > Conta e saldos iniciais: caixa "É conta
+  poupança" em cada banco (a Novo Banco não pode ser).
+- Transferências da Novo Banco para a conta poupança contam
+  como poupança (taxa de poupança, regra 50/30/20) e não
+  como gasto; aparecem na barra verde "Poupança".
+- Fundo de emergência automático: saldo atual da(s)
+  conta(s) poupança + poupança fora dos bancos (se houver),
+  a dividir pela despesa média mensal.
+- Início, Fluxo, Top 10, Análise e cabeçalho dos
+  Lançamentos contam só o que entra e sai da Novo Banco.
+  Receitas/despesas feitas noutros bancos aparecem só no
+  extrato desse banco (ecrã Bancos).
+- Lançamentos: o que é de outro banco tem uma etiqueta com
+  o nome do banco.
+Ficheiros alterados: index.html, sw.js
+
+------------------------------------------------------------
+v1.4.2 — 25/11/2026   (sw.js: fluxo-caixa-v6)
 ------------------------------------------------------------
 - Feita a partir da v1.4.1 (a que estava no GitHub).
 - Arrumar designações: todos os "Levantamentos em Cartão"
