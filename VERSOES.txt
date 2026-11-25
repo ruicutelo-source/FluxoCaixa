@@ -3,7 +3,26 @@ Endereço: https://ruicutelo-source.github.io/FluxoCaixa/
 A versão em uso aparece na app em Definições (roda dentada) > Sessão.
 
 ------------------------------------------------------------
-v1.2.0 — 24/11/2026   (sw.js: fluxo-caixa-v3)   << ATUAL
+v1.3.0 — 25/11/2026   (sw.js: fluxo-caixa-v4)   << ATUAL
+------------------------------------------------------------
+- Definições > "Arrumar designações": junta designações
+  repetidas, põe cada uma no sítio certo e corrige erros de
+  escrita, nos lançamentos e nas listas. Os valores não
+  mudam (a app mostra os totais antes/depois como prova).
+  * Meo (TV / Internet / Telefone) — Despesa Fixa
+  * Comissão Conta Pacote 100 e Imposto Selo Conta Pacote 100
+    — Despesa Fixa
+  * Juros Devedores (Novo Banco) e Imposto de Selo s/ Juros
+    — Despesa Não Operacional
+  * IMI (Imposto Municipal sobre Imóveis) — Despesa Fixa
+  * Devoluções e Estornos — Receita Não Operacional
+  * Seguro Ocupantes Veículos (Cátia) — Despesa Fixa
+  * Erros de escrita: Transferência, Financeira, Multirriscos
+  * Retirada: Empréstimo / Renda da Casa (não usada)
+Ficheiros alterados: index.html, sw.js
+
+------------------------------------------------------------
+v1.2.0 — 24/11/2026   (sw.js: fluxo-caixa-v3)
 ------------------------------------------------------------
 - Novo ecrã "Bancos": extrato bancário de cada banco
   (saldo inicial, entradas, saídas, saldo atual e saldo

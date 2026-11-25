@@ -130,6 +130,8 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
 .opt:hover,.opt.act{background:var(--bg)}
 .opt.sel{font-weight:700}
 .optc{font-size:11px;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
+table.arr td:first-child{white-space:normal;word-break:break-word}
+table.arr td:first-child .small{margin-top:2px}
 .d2ok{font-size:11px;color:var(--rec);min-height:14px}
 .mov{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .mov:hover{background:var(--bg)}
@@ -189,7 +191,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
          onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
@@ -503,6 +505,10 @@ function vCfg() {
     <div style="margin-top:10px">${L.contas.map(c => `<label class="fl" style="margin-bottom:8px">Saldo inicial — ${esc(c)}
       <input class="inp si" data-c="${esc(c)}" inputmode="decimal" value="${(L.saldosIniciais || {})[c] != null ? String(L.saldosIniciais[c]).replace('.', ',') : ''}"></label>`).join('')}</div>
     <button class="btn p" id="btnSaveSI">Guardar</button></div>
+  <div class="card"><h3>Arrumar designações</h3>
+    ${S.listas.arrumacao1 ? `<p class="small">✅ Já aplicada em ${esc(S.listas.arrumacao1)}. Se lançar com um nome antigo, pode voltar a correr (só muda o que estiver fora do sítio).</p>` :
+      `<p class="small muted">Junta designações repetidas, põe cada uma no sítio certo e corrige erros de escrita. <b>Os valores não mudam.</b></p>`}
+    <div class="btns"><button class="btn ${S.listas.arrumacao1 ? '' : 'p'}" id="btnArr">Ver alterações</button></div></div>
   <div class="card"><h3>Sessão</h3><div class="small muted">Entrou como ${esc(S.user.email)} · versão ${APP_VERSION}</div>
     <div class="btns"><button class="btn" id="btnOut">Terminar sessão</button></div></div>
   </div>
@@ -547,6 +553,7 @@ function bindCfg() {
   $('#btnOut').onclick = async () => { if (await ask('Terminar a sessão neste aparelho?', 'Terminar')) signOut(auth); };
   $('#impFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importXlsx(f); };
   $('#btnExp').onclick = exportXlsx;
+  $('#btnArr').onclick = verArrumacao;
 }
 async function saveListas(patch) { await setDoc(doc(db, 'config', 'listas'), { ...S.listas, ...patch }); }
 
@@ -699,6 +706,86 @@ async function importXlsx(file) {
     S.ano = ano; S.mes = null; msg.textContent = `Importados ${rows.length} lançamentos de ${ano}.`; toast('Importação concluída.');
   } catch (e) { console.error(e); msg.textContent = 'Erro: ' + e.message; }
 }
+/* ---------------- arrumação de designações (v1.3.0) ---------------- */
+const ARR_REGRAS = [
+  { n:'Meo: duas designações para a mesma fatura', de:['Assinaturas (Serviço Meo TV/Internet)', 'Internet / TV / Telefone'], para:'Meo (TV / Internet / Telefone)', d1:'Despesa Fixa' },
+  { n:'Imposto de selo da Conta Pacote 100 (inclui o de maio com nome errado)', de:['Imposto Selo Manutenção da Conta Pacote 100'], alsoIf:l => l.d2 === 'Manutenção da Conta Pacote 100' && Math.abs((+l.valor || 0) - 0.32) < 0.001, para:'Imposto Selo Conta Pacote 100', d1:'Despesa Fixa' },
+  { n:'Comissão mensal da Conta Pacote 100', de:['Conta Pacote 100', 'Manutenção da Conta Pacote 100'], para:'Comissão Conta Pacote 100', d1:'Despesa Fixa' },
+  { n:'Juros da conta a descoberto', de:['Pagamento Juros (Conta Novo Banco)', 'Pagamento Juros da Conta (000073840863)'], para:'Juros Devedores (Novo Banco)', d1:'Despesa Não Operacional' },
+  { n:'Imposto de selo sobre os juros', de:['Imposto de Selo (Juros)', 'Imposto de Selo (S/Juros)'], para:'Imposto de Selo s/ Juros', d1:'Despesa Não Operacional' },
+  { n:'IMI num só sítio (despesa fixa anual)', de:['IMI (Mensalizado)', 'IMI (Imposto Municipal Imóveis)'], para:'IMI (Imposto Municipal sobre Imóveis)', d1:'Despesa Fixa' },
+  { n:'Devoluções e estornos juntos (fora do rendimento-base)', de:['Ajuste Cartão Multibanco (Devolução de Compra)', 'Comissão Transação Internacional (Devolução)', 'Imposto Transação Internacional (Devolução)'], para:'Devoluções e Estornos', d1:'Receita Não Operacional' },
+  { n:'Seguro de ocupantes (nome correto)', de:['Seguro Vida (Sobre os Veiculos (Cátia))'], para:'Seguro Ocupantes Veículos (Cátia)', d1:'Despesa Fixa' },
+  { n:'Erro de escrita', de:['Tranferencia (Outros) Cátia'], para:'Transferência (Outros) Cátia', d1:'Receita Não Operacional' },
+  { n:'Erro de escrita', de:['Instituto Gestão Finançeira SS (Plano Prestacional )'], para:'Instituto Gestão Financeira SS (Plano Prestacional)', d1:'Despesa Fixa' },
+  { n:'Erro de escrita', de:['Seguro Multiriscos (Habitação)'], para:'Seguro Multirriscos (Habitação)', d1:'Despesa Fixa' },
+  { n:'Erro de escrita', de:['Transferencia p/Terceiros (Nelson Filipe)'], para:'Transferência p/Terceiros (Nelson Filipe)', d1:'Despesa Não Operacional' },
+  { n:'Erro de escrita', de:['Comissão Transferencia p/Terceiros (Nelson Filipe)'], para:'Comissão Transferência p/Terceiros (Nelson Filipe)', d1:'Despesa Não Operacional' },
+  { n:'Erro de escrita', de:['Imposto Selo Transferencia p/Terceiros (Nelson Filipe)'], para:'Imposto Selo Transferência p/Terceiros (Nelson Filipe)', d1:'Despesa Não Operacional' },
+];
+const ARR_RETIRAR = ['Empréstimo / Renda da Casa'];
+const D1KEY = { 'Receita Operacional':'receitaOperacional', 'Receita Não Operacional':'receitaNaoOperacional', 'Despesa Fixa':'despesaFixa', 'Despesa Variável':'despesaVariavel', 'Despesa Não Operacional':'despesaNaoOperacional' };
+function regraDe(l) {
+  if (l.tipo !== 'Receita' && l.tipo !== 'Despesa') return null;
+  for (const r of ARR_REGRAS) if (r.alsoIf && r.alsoIf(l)) return r;
+  for (const r of ARR_REGRAS) if (r.de.includes(l.d2)) return r;
+  return null;
+}
+function planoArrumacao() {
+  const mud = [], porRegra = new Map();
+  for (const l of S.lancs) { const r = regraDe(l); if (!r) continue;
+    if (l.d2 === r.para && l.d1 === r.d1) continue;
+    mud.push({ l, r }); const k = r.para; const x = porRegra.get(k) || { r, n:0, v:0, de:new Set() };
+    x.n++; x.v += +l.valor || 0; x.de.add(l.d2); porRegra.set(k, x); }
+  // listas novas
+  const L = S.listas, nova = {};
+  const todos = new Set(ARR_REGRAS.flatMap(r => r.de));
+  for (const k of Object.values(D1KEY)) nova[k] = (L[k] || []).filter(x => !todos.has(x) && !ARR_RETIRAR.includes(x));
+  for (const r of ARR_REGRAS) { const k = D1KEY[r.d1]; for (const kk of Object.values(D1KEY)) if (kk !== k) nova[kk] = nova[kk].filter(x => x !== r.para);
+    if (!nova[k].includes(r.para)) nova[k].push(r.para); }
+  const emUso = ARR_RETIRAR.filter(x => S.lancs.some(l => l.d2 === x));
+  for (const x of emUso) for (const k of Object.values(D1KEY)) if ((L[k] || []).includes(x) && !nova[k].includes(x)) nova[k].push(x);
+  // totais por ano e tipo, antes e depois (os valores não mudam)
+  const tot = (arr) => { const t = {}; for (const l of arr) { const k = `${l.ano}|${l.tipo}`; t[k] = r2((t[k] || 0) + (+l.valor || 0)); } return t; };
+  const depois = S.lancs.map(l => { const r = regraDe(l); return r ? { ...l, d2:r.para, d1:r.d1 } : l; });
+  return { mud, porRegra:[...porRegra.values()], nova, antes:tot(S.lancs), depois:tot(depois), retirados:ARR_RETIRAR.filter(x => !emUso.includes(x)) };
+}
+function verArrumacao() {
+  const P = planoArrumacao();
+  const linhas = P.porRegra.map(x => `<tr><td>${esc(x.r.n)}<div class="small muted">${[...x.de].map(esc).join(' + ')} → <b>${esc(x.r.para)}</b> (${esc(x.r.d1)})</div></td><td>${x.n}</td><td>${eur(x.v)}</td></tr>`).join('');
+  const chaves = [...new Set([...Object.keys(P.antes), ...Object.keys(P.depois)])].sort();
+  const iguais = chaves.every(k => Math.abs((P.antes[k] || 0) - (P.depois[k] || 0)) < 0.005);
+  const listMud = Object.entries(P.nova).some(([k, v]) => JSON.stringify(v) !== JSON.stringify(S.listas[k] || []));
+  document.body.style.overflow = 'hidden';
+  $('#modal').innerHTML = `<div class="overlay"><div class="sheet" style="max-width:720px"><h2><span>Arrumar designações</span><button class="iconbtn" id="arX">✕</button></h2>
+    ${P.mud.length || listMud ? `
+    <p class="small muted">Lançamentos que mudam de designação (só o nome/sítio — o valor fica igual):</p>
+    <table class="arr"><tr><th>Correção</th><th>Lanç.</th><th>Valor</th></tr>${linhas || '<tr><td colspan="3" class="muted">Nenhum lançamento a mudar — só as listas.</td></tr>'}</table>
+    ${P.retirados.length ? `<p class="small">Retirada da lista (não usada): ${P.retirados.map(esc).join(', ')}</p>` : ''}
+    <h3 style="margin-top:14px">Prova de que os valores não mudam</h3>
+    <div class="scroll"><table><tr><th>Ano · Tipo</th><th>Antes</th><th>Depois</th></tr>
+      ${chaves.map(k => `<tr><td>${esc(k.replace('|', ' · '))}</td><td>${eur(P.antes[k])}</td><td>${eur(P.depois[k])}</td></tr>`).join('')}</table></div>
+    <p class="small ${iguais ? 'pos' : 'neg'}" id="arProva">${iguais ? '✓ Totais iguais antes e depois.' : '✗ Os totais não batem — não aplicar.'}</p>
+    <p class="small muted">Recomendação: antes de aplicar, exporte uma cópia para Excel.</p>
+    <div class="btns"><button class="btn" id="arExp">Exportar cópia</button><button class="btn grow" id="arCan">Cancelar</button>
+      <button class="btn p grow" id="arOk" ${iguais ? '' : 'disabled'}>Aplicar (${P.mud.length})</button></div>`
+    : `<p>✅ Está tudo arrumado. Não há nada a mudar.</p><div class="btns"><button class="btn p grow" id="arCan">Fechar</button></div>`}
+  </div></div>`;
+  $('#arX').onclick = closeModal; $('#arCan').onclick = closeModal;
+  if ($('#arExp')) $('#arExp').onclick = exportXlsx;
+  if ($('#arOk')) $('#arOk').onclick = async () => {
+    const b = $('#arOk'); b.disabled = true;
+    try {
+      for (let i = 0; i < P.mud.length; i += 400) { const wb = writeBatch(db);
+        P.mud.slice(i, i + 400).forEach(({ l, r }) => wb.update(doc(db, 'lancamentos', l.id), { d2:r.para, d1:r.d1 }));
+        await wb.commit(); b.textContent = `A gravar… ${Math.min(i + 400, P.mud.length)}/${P.mud.length}`; }
+      const d = new Date();
+      await saveListas({ ...P.nova, arrumacao1:`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` });
+      closeModal(); toast(`Arrumação aplicada: ${P.mud.length} lançamento(s).`, 4000);
+    } catch (e) { showErr(e); b.disabled = false; b.textContent = 'Tentar outra vez'; }
+  };
+}
+
 async function exportXlsx() {
   try {
     const XLSX = await loadXLSX(); const wb = XLSX.utils.book_new();
